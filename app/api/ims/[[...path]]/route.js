@@ -1137,17 +1137,27 @@ export async function GET(request, { params }) {
       }
 
       // Aggregate total stock across warehouses
-      const result = await IMSInventory.aggregate([
+      const inventory = await IMSInventory.aggregate([
         { $match: query },
-        { $group: { _id: null, totalQuantity: { $sum: "$quantity" } } },
+        {
+          $group: {
+            _id: "$size",
+            quantity: { $sum: "$quantity" },
+          },
+        },
+        {
+          $project: {
+            _id: 0,
+            size: "$_id",
+            quantity: 1,
+          },
+        },
       ]);
 
-      const totalQuantity = result[0]?.totalQuantity || 0;
 
       return Response.json({
         productId,
-        totalQuantity,
-        inStock: totalQuantity > 0,
+        inventory,
       });
     }
 
