@@ -1279,6 +1279,9 @@ export default function VastraDrobeIMS() {
                                 <SelectItem value="fullSleeveTop">
                                   Full Sleeve Top
                                 </SelectItem>
+                                <SelectItem value="MensShirt">
+                                  Mens Shirt
+                                </SelectItem>
                                 <SelectItem value="ribbedTop">
                                   Ribbed Top
                                 </SelectItem>
