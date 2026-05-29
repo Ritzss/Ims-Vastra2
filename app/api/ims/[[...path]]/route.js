@@ -214,7 +214,7 @@ export async function POST(request, { params }) {
       const imageFiles = formData.getAll("images");
 
       // ===== Image Validation =====
-      const MAX_FILE_SIZE = 10 * 1024 * 1024;
+      const MAX_FILE_SIZE = 12 * 1024 * 1024;
       const MAX_IMAGES = 5;
       const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp"];
 
