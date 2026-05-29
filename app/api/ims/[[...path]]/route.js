@@ -4,6 +4,8 @@
  * This API integrates with existing VastraDrobe database without breaking it.
  * Handles warehouse-wise inventory tracking, stock movements, and admin operations.
  */
+export const runtime = "nodejs";
+export const maxDuration = 60;
 
 import { connectDB } from "@/lib/db";
 import { verifyToken, checkRole, generateToken } from "@/lib/auth";
@@ -216,6 +218,7 @@ export async function POST(request, { params }) {
       // ===== Image Validation =====
       const MAX_FILE_SIZE = 12 * 1024 * 1024;
       const MAX_IMAGES = 5;
+
       const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp"];
 
       if (imageFiles.length > MAX_IMAGES) {
@@ -234,7 +237,7 @@ export async function POST(request, { params }) {
 
         if (file.size > MAX_FILE_SIZE) {
           return Response.json(
-            { error: "Image size exceeds 5MB" },
+            { error: "Image size exceeds 12MB" },
             { status: 400 },
           );
         }
@@ -245,16 +248,13 @@ export async function POST(request, { params }) {
       for (const file of imageFiles) {
         if (!file || typeof file === "string") continue;
 
-        const buffer = Buffer.from(await file.arrayBuffer());
+        const arrayBuffer = await file.arrayBuffer();
 
         const uploadResult = await new Promise((resolve, reject) => {
           const stream = cloudinary.uploader.upload_stream(
             {
               folder: "products",
-              transformation: [
-                { width: 1200, height: 1200, crop: "limit" },
-                { quality: "auto" },
-              ],
+              resource_type: "image",
             },
             (error, result) => {
               if (error) return reject(error);
@@ -262,13 +262,13 @@ export async function POST(request, { params }) {
             },
           );
 
-          stream.end(buffer);
+          stream.end(Buffer.from(arrayBuffer));
         });
 
+        // Store secure_url
         imagePaths.push(uploadResult.secure_url);
       }
 
-      // 🔎 Check if product already exists (same name/category/subcategory)
       const existingProduct = await Product.findOne({
         name,
         category,
@@ -276,7 +276,6 @@ export async function POST(request, { params }) {
       });
 
       if (existingProduct) {
-        // Add new variant
         await Product.updateOne(
           { _id: existingProduct._id },
           {
@@ -295,7 +294,6 @@ export async function POST(request, { params }) {
         });
       }
 
-      // 🔒 Ensure counter synced
       const maxProduct = await Product.findOne().sort({ productId: -1 }).lean();
 
       if (maxProduct) {
@@ -1153,7 +1151,6 @@ export async function GET(request, { params }) {
           },
         },
       ]);
-
 
       return Response.json({
         productId,
