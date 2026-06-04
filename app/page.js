@@ -2154,11 +2154,25 @@ export default function VastraDrobeIMS() {
                         <TableCell>₹{order.totalAmount}</TableCell>
 
                         <TableCell className="text-sm">
-                          {order.items?.length
-                            ? order.items
-                                .map((p) => `ID ${p.productId} (Qty: ${p.qty}) [Size: ${p.size}]`)
-                                .join(", ")
-                            : "—"}
+                          {order.items?.map((item) => (
+                            <div
+                              key={`${item.productId}-${item.size}-${item.color}`}
+                            >
+                              <details className="group">
+                                <summary className="cursor-pointer text-blue-600 hover:underline">
+                                  ID {item.productId}
+                                </summary>
+
+                                <div className="mt-2 ml-4 text-muted-foreground">
+                                  <p>Qty: {item.qty}</p>
+                                  <p>Size: {item.size}</p>
+                                  <p>Color: {item.color}</p>
+                                  <p>Name: {item.name}</p>
+                                  <p>Price: ₹{item.price}</p>
+                                </div>
+                              </details>
+                            </div>
+                          ))}
                         </TableCell>
 
                         <TableCell className="text-sm">

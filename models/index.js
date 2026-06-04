@@ -74,6 +74,7 @@ const OrderSchema = new mongoose.Schema(
         title: { type: String, required: false },
         name: { type: String }, // backward compatibility
         price: { type: Number },
+        color: { type: String || null },
         qty: { type: Number },
       },
     ],
