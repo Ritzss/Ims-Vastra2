@@ -1487,7 +1487,7 @@ export default function VastraDrobeIMS() {
                             <TableCell>{product.subcategory}</TableCell>
                             <TableCell>₹{product.price}</TableCell>
                             <TableCell
-                              className="cursor-pointer text-blue-600"
+                              className="cursor-pointer hover:underline"
                               onClick={() =>
                                 setExpandedProduct(
                                   expandedProduct === product.productId
