@@ -817,13 +817,13 @@ export default function VastraDrobeIMS() {
       bValue = new Date(b.createdAt).getTime();
     }
 
-    return sortOrder === "asc"
-      ? aValue > bValue
-        ? 1
-        : -1
-      : aValue < bValue
-        ? 1
-        : -1;
+    if (typeof aValue === "string") {
+      return sortOrder === "asc"
+        ? aValue.localeCompare(bValue)
+        : bValue.localeCompare(aValue);
+    }
+
+    return sortOrder === "asc" ? aValue - bValue : bValue - aValue;
   });
 
   // useEffect(() => {
@@ -1499,9 +1499,23 @@ export default function VastraDrobeIMS() {
                         {sortField === "productId" &&
                           (sortOrder === "asc" ? "↑" : "↓")}
                       </TableHead>
-                      <TableHead>Name</TableHead>
+                      <TableHead
+                        className="cursor-pointer"
+                        onClick={() => handleSort("name")}
+                      >
+                        Name{" "}
+                        {sortField === "name" &&
+                          (sortOrder === "asc" ? "↑" : "↓")}
+                      </TableHead>
                       <TableHead>Brand</TableHead>
-                      <TableHead>Category</TableHead>
+                      <TableHead
+                        className="cursor-pointer"
+                        onClick={() => handleSort("category")}
+                      >
+                        Category{" "}
+                        {sortField === "category" &&
+                          (sortOrder === "asc" ? "↑" : "↓")}
+                      </TableHead>
                       <TableHead>SubCategory</TableHead>
                       <TableHead
                         className="cursor-pointer"
