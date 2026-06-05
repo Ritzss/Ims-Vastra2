@@ -68,6 +68,7 @@ export default function VastraDrobeIMS() {
   const [token, setToken] = useState(null);
   const [currentUser, setCurrentUser] = useState(null);
   const [activeTab, setActiveTab] = useState("dashboard");
+  const [expandedProduct, setExpandedProduct] = useState(null);
 
   // Auth state
   const [email, setEmail] = useState("");
@@ -1485,8 +1486,17 @@ export default function VastraDrobeIMS() {
                             <TableCell>{product.category}</TableCell>
                             <TableCell>{product.subcategory}</TableCell>
                             <TableCell>₹{product.price}</TableCell>
-                            <TableCell>
-                              {product.variants?.length || 0}
+                            <TableCell
+                              className="cursor-pointer text-blue-600"
+                              onClick={() =>
+                                setExpandedProduct(
+                                  expandedProduct === product.productId
+                                    ? null
+                                    : product.productId,
+                                )
+                              }
+                            >
+                              {product.variants?.length || 0} Variants
                             </TableCell>
                             <TableCell>
                               {new Date(product.createdAt).toLocaleDateString()}
@@ -1503,28 +1513,30 @@ export default function VastraDrobeIMS() {
                               </TableCell>
                             )}
                           </TableRow>
-                          {product.variants?.length > 0 && (
-                            <TableRow>
-                              <TableCell colSpan={8}>
-                                <div className="flex flex-wrap gap-4">
-                                  {product.variants.map((variant, i) => (
-                                    <div
-                                      key={i}
-                                      className="border rounded p-2 bg-muted text-sm"
-                                    >
-                                      <div>
-                                        <strong>Color:</strong> {variant.color}
+                          {expandedProduct === product.productId &&
+                            product.variants?.length > 0 && (
+                              <TableRow>
+                                <TableCell colSpan={8}>
+                                  <div className="flex flex-wrap gap-4">
+                                    {product.variants.map((variant, i) => (
+                                      <div
+                                        key={i}
+                                        className="border rounded p-2 bg-muted text-sm"
+                                      >
+                                        <div>
+                                          <strong>Color:</strong>{" "}
+                                          {variant.color}
+                                        </div>
+                                        <div>
+                                          <strong>Sizes:</strong>{" "}
+                                          {variant.sizes?.join(", ")}
+                                        </div>
                                       </div>
-                                      <div>
-                                        <strong>Sizes:</strong>{" "}
-                                        {variant.sizes?.join(", ")}
-                                      </div>
-                                    </div>
-                                  ))}
-                                </div>
-                              </TableCell>
-                            </TableRow>
-                          )}
+                                    ))}
+                                  </div>
+                                </TableCell>
+                              </TableRow>
+                            )}
                         </React.Fragment>
                       );
                     })}
