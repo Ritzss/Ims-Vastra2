@@ -69,6 +69,8 @@ export default function VastraDrobeIMS() {
   const [currentUser, setCurrentUser] = useState(null);
   const [activeTab, setActiveTab] = useState("dashboard");
   const [expandedProduct, setExpandedProduct] = useState(null);
+  const [sortField, setSortField] = useState(null);
+  const [sortOrder, setSortOrder] = useState("asc");
 
   // Auth state
   const [email, setEmail] = useState("");
@@ -795,6 +797,35 @@ export default function VastraDrobeIMS() {
     }
   };
 
+  const handleSort = (field) => {
+    if (sortField === field) {
+      setSortOrder(sortOrder === "asc" ? "desc" : "asc");
+    } else {
+      setSortField(field);
+      setSortOrder("asc");
+    }
+  };
+
+  const sortedProducts = [...products].sort((a, b) => {
+    if (!sortField) return 0;
+
+    let aValue = a[sortField];
+    let bValue = b[sortField];
+
+    if (sortField === "createdAt") {
+      aValue = new Date(a.createdAt).getTime();
+      bValue = new Date(b.createdAt).getTime();
+    }
+
+    return sortOrder === "asc"
+      ? aValue > bValue
+        ? 1
+        : -1
+      : aValue < bValue
+        ? 1
+        : -1;
+  });
+
   // useEffect(() => {
   //   const loadProducts = async () => {
   //     const data = await apiCall("/products/list");
@@ -1460,21 +1491,42 @@ export default function VastraDrobeIMS() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Product Id</TableHead>
+                      <TableHead
+                        className="cursor-pointer"
+                        onClick={() => handleSort("productId")}
+                      >
+                        Product Id{" "}
+                        {sortField === "productId" &&
+                          (sortOrder === "asc" ? "↑" : "↓")}
+                      </TableHead>
                       <TableHead>Name</TableHead>
                       <TableHead>Brand</TableHead>
                       <TableHead>Category</TableHead>
                       <TableHead>SubCategory</TableHead>
-                      <TableHead>Base Price</TableHead>
+                      <TableHead
+                        className="cursor-pointer"
+                        onClick={() => handleSort("price")}
+                      >
+                        Base Price{" "}
+                        {sortField === "price" &&
+                          (sortOrder === "asc" ? "↑" : "↓")}
+                      </TableHead>
                       <TableHead>Variants</TableHead>
-                      <TableHead>Created</TableHead>
+                      <TableHead
+                        className="cursor-pointer"
+                        onClick={() => handleSort("createdAt")}
+                      >
+                        Created{" "}
+                        {sortField === "createdAt" &&
+                          (sortOrder === "asc" ? "↑" : "↓")}
+                      </TableHead>
                       {currentUser?.role === "admin" && (
                         <TableHead>Actions</TableHead>
                       )}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {products.map((product, ind) => {
+                    {sortedProducts.map((product, ind) => {
                       return (
                         <React.Fragment key={`${product.id}-${ind}`}>
                           <TableRow key={`${product.id}-${ind}`}>
