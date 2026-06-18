@@ -1242,6 +1242,7 @@ export async function GET(request, { params }) {
 
       const inventory = await IMSInventory.find(query)
         .populate("warehouseId")
+        .sort({ createdAt: -1 })
         .limit(limit)
         .lean();
 
