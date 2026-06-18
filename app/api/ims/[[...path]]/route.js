@@ -1229,7 +1229,7 @@ export async function GET(request, { params }) {
       const productId = searchParams.get("productId");
       const warehouseId = searchParams.get("warehouseId");
       const lowStock = searchParams.get("lowStock") === "true";
-      const limit = Math.min(parseInt(searchParams.get("limit")) || 8, 100);
+      const limit = Math.min(parseInt(searchParams.get("limit")) || 50, 100);
 
       // const limit = parseInt(searchParams.get("limit") || "100");
 
