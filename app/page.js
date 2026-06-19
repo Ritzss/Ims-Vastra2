@@ -1326,6 +1326,9 @@ export default function VastraDrobeIMS() {
                                 <SelectItem value="generalTopBottom">
                                   General Top/Bottom
                                 </SelectItem>
+                                <SelectItem value="formalTopBottom">
+                                  Formal Top/Bottom
+                                </SelectItem>
                               </SelectContent>
                             </Select>
                           </div>
