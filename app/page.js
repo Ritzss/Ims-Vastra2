@@ -2668,6 +2668,7 @@ export default function VastraDrobeIMS() {
         </Tabs>
       </main>
 
+      {/* Footer */}
       <footer>
         <div className="border-t border-[#000000] mt-20 p-8 text-center text-xs text-[#000000]">
           Copyright © 2026 VastraDrobe. All rights reserved.
