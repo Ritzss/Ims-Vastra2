@@ -2669,7 +2669,7 @@ export default function VastraDrobeIMS() {
       </main>
 
       <footer>
-        <div className="border-t border-[#000000] mt-20 p-8 text-center text-xs text-[#8a7b6c]">
+        <div className="border-t border-[#000000] mt-20 p-8 text-center text-xs text-[#000000]">
           Copyright © 2026 VastraDrobe. All rights reserved.
         </div>
       </footer>
