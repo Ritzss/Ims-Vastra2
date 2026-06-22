@@ -962,7 +962,7 @@ export default function VastraDrobeIMS() {
       </header>
 
       {/* Main Content */}
-      <div className="container mx-auto px-4 py-6">
+      <main className="container mx-auto px-4 py-6">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid grid-cols-7 lg:grid-cols-8 mb-6">
             <TabsTrigger value="dashboard" className="flex items-center gap-2">
@@ -2666,7 +2666,13 @@ export default function VastraDrobeIMS() {
             </TabsContent>
           )}
         </Tabs>
-      </div>
+      </main>
+
+      <footer>
+        <div className="border-t border-[#000000] mt-20 p-8 text-center text-xs text-[#8a7b6c]">
+          Copyright © 2026 VastraDrobe. All rights reserved.
+        </div>
+      </footer>
 
       <Toaster position="top-right" richColors />
     </div>
