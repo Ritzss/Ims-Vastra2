@@ -44,7 +44,7 @@ const ProductSchema = new mongoose.Schema(
 
     sizeChartType: {
       type: String,
-      enum: ["kidsHoodie", "fullSleeveTop", "ribbedTop","formalTopBottom", "generalTopBottom","MensShirt","MensKurta","menBottom"],
+      enum: ["kidstopbottom", "fullSleeveTop", "ribbedTop","formalTopBottom", "generalTopBottom","MensShirt","MensKurta","menBottom"],
     },
 
     productDetails: {

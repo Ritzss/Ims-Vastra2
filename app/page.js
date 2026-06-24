@@ -1305,8 +1305,8 @@ export default function VastraDrobeIMS() {
                                 <SelectValue placeholder="Select size chart type" />
                               </SelectTrigger>
                               <SelectContent>
-                                <SelectItem value="kidsHoodie">
-                                  Kids Hoodie
+                                <SelectItem value="kidstopbottom">
+                                  Kids Top-Bottom
                                 </SelectItem>
                                 <SelectItem value="fullSleeveTop">
                                   Full Sleeve Top
