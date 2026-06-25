@@ -1548,7 +1548,7 @@ export default function VastraDrobeIMS() {
                         <React.Fragment key={`${product.id}-${ind}`}>
                           <TableRow key={`${product.id}-${ind}`}>
                             <TableCell>{product.productId}</TableCell>
-                            <TableCell className="font-medium line-clamp-1">
+                            <TableCell className="font-medium w-[30%]">
                               {product.name}
                             </TableCell>
                             <TableCell>{product.brand}</TableCell>
