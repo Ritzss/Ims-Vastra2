@@ -1822,7 +1822,7 @@ export default function VastraDrobeIMS() {
                   <TableBody>
                     {inventory.map((inv) => (
                       <TableRow key={inv._id || inv.id}>
-                        <TableCell className="font-medium">
+                        <TableCell className="font-medium w-[50%]">
                           {inv.product?.name || "N/A"}
                         </TableCell>
                         <TableCell>{inv.size}</TableCell>
