@@ -2177,7 +2177,7 @@ export default function VastraDrobeIMS() {
                             {movement.type}
                           </Badge>
                         </TableCell>
-                        <TableCell>{movement.product?.name || "N/A"}</TableCell>
+                        <TableCell className="w-[60%]">{movement.product?.name || "N/A"}</TableCell>
                         <TableCell>
                           {movement.fromWarehouseId?.name || "-"}
                         </TableCell>
