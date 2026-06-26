@@ -1552,8 +1552,8 @@ export default function VastraDrobeIMS() {
                               {product.name}
                             </TableCell>
                             <TableCell className="capitalize">{product.brand}</TableCell>
-                            <TableCell>{product.category}</TableCell>
-                            <TableCell>{product.subcategory}</TableCell>
+                            <TableCell className="capitalize">{product.category}</TableCell>
+                            <TableCell >{product.subcategory}</TableCell>
                             <TableCell>₹{product.price}</TableCell>
                             <TableCell
                               className="cursor-pointer hover:underline"
