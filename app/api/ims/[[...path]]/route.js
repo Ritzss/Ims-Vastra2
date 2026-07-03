@@ -1053,7 +1053,7 @@ export async function GET(request, { params }) {
     if (routePath === "public/products/latest") {
       const products = await Product.find({ isActive: true })
         .sort({ createdAt: -1 })
-        .limit(6)
+        .limit(27)
         .lean();
 
       return Response.json({ products });
