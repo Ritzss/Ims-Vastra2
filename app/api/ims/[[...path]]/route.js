@@ -1030,6 +1030,78 @@ export async function GET(request, { params }) {
       }
 
       const category = searchParams.get("category");
+      const subcategory = searchParams.get("subcategory");
+      const view = searchParams.get("view");
+
+      // ================================
+      // GROUP PRODUCTS BY SUBCATEGORY
+      // ================================
+
+      if (view === "subcategories") {
+        const filter = {
+          isActive: true,
+        };
+
+        if (category) {
+          filter.category = category;
+        }
+
+        if (subcategory) {
+          filter.subcategory = subcategory;
+        }
+
+        const sections = await Product.aggregate([
+          {
+            $match: filter,
+          },
+          {
+            $sort: {
+              createdAt: -1,
+            },
+          },
+          {
+            $group: {
+              _id: "$subcategory",
+              totalProducts: {
+                $sum: 1,
+              },
+              products: {
+                $push: {
+                  productId: "$productId",
+                  name: "$name",
+                  description: "$description",
+                  price: "$price",
+                  mrp: "$mrp",
+                  stock: "$stock",
+                  brand: "$brand",
+                  category: "$category",
+                  subcategory: "$subcategory",
+                  variants: "$variants",
+                  sizeChartType: "$sizeChartType",
+                  productDetails: "$productDetails",
+                },
+              },
+            },
+          },
+          {
+            $project: {
+              _id: 0,
+              subcategory: "$_id",
+              totalProducts: 1,
+              products: {
+                $slice: ["$products", 4],
+              },
+            },
+          },
+          {
+            $sort: {
+              subcategory: 1,
+            },
+          },
+        ]);
+
+        return Response.json({ sections });
+      }
 
       const page = Math.max(parseInt(searchParams.get("page")) || 1, 1);
       const limit = Math.min(parseInt(searchParams.get("limit")) || 8, 50);
