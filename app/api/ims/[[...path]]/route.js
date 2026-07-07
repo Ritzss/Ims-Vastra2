@@ -1003,6 +1003,64 @@ export async function GET(request, { params }) {
     // PUBLIC ROUTES (No Auth)
     // =============================
 
+    // GET /api/ims/public/HOME
+    if (routePath === "public/home") {
+      const products = await Product.find({
+        isActive: true,
+      })
+        .select(
+          "productId name stock description price mrp variants brand category subcategory sizeChartType productDetails createdAt",
+        )
+        .sort({ createdAt: -1 })
+        .lean();
+
+      // Latest Products
+      const latestProducts = products.slice(0, 27);
+
+      // Categories
+      const womenProducts = products
+        .filter((p) => p.category === "women")
+        .slice(0, 8);
+
+      const menProducts = products
+        .filter((p) => p.category === "men")
+        .slice(0, 8);
+
+      const kidsProducts = products
+        .filter((p) => p.category === "boys" || p.category === "girls")
+        .slice(0, 8);
+
+      // Featured Collections
+      const featuredCollections = products.reduce((acc, product) => {
+        const key = product.subcategory || "Other";
+
+        if (!acc[key]) {
+          acc[key] = {
+            subcategory: key,
+            totalProducts: 0,
+            products: [],
+          };
+        }
+
+        acc[key].totalProducts++;
+
+        if (acc[key].products.length < 4) {
+          acc[key].products.push(product);
+        }
+
+        return acc;
+      }, {});
+
+      return Response.json({
+        latestProducts,
+        womenProducts,
+        menProducts,
+        kidsProducts,
+        featuredCollections: Object.values(featuredCollections),
+        allProducts: products,
+      });
+    }
+
     // GET /api/ims/public/products
     if (routePath === "public/products") {
       // ✅ FAVORITES SUPPORT (ids=1,2,3)
@@ -1032,6 +1090,7 @@ export async function GET(request, { params }) {
       const category = searchParams.get("category");
       const subcategory = searchParams.get("subcategory");
       const view = searchParams.get("view");
+      const color = searchParams.get("color");
 
       // ================================
       // GROUP PRODUCTS BY SUBCATEGORY
@@ -1050,65 +1109,96 @@ export async function GET(request, { params }) {
           filter.subcategory = subcategory;
         }
 
-        const sections = await Product.aggregate([
+        // Fetch all products once
+        const products = await Product.find(filter)
+          .select(
+            "productId name stock description price mrp variants brand category subcategory sizeChartType productDetails createdAt",
+          )
+          .sort({ createdAt: -1 })
+          .lean();
+
+        // Group by subcategory in Node
+        const grouped = products.reduce((acc, product) => {
+          const key = product.subcategory || "Other";
+
+          if (!acc[key]) {
+            acc[key] = {
+              subcategory: key,
+              totalProducts: 0,
+              products: [],
+            };
+          }
+
+          acc[key].totalProducts++;
+          acc[key].products.push(product);
+
+          return acc;
+        }, {});
+
+        const sections = Object.values(grouped)
+          .map((section) => ({
+            ...section,
+            products: section.products.slice(0, 4),
+          }))
+          .sort((a, b) => a.subcategory.localeCompare(b.subcategory));
+
+        return Response.json({
+          sections,
+          products,
+        });
+      }
+      if (view === "colors") {
+        const colors = await Product.aggregate([
           {
-            $match: filter,
-          },
-          {
-            $sort: {
-              createdAt: -1,
+            $match: {
+              isActive: true,
             },
           },
           {
+            $unwind: "$variants",
+          },
+          {
             $group: {
-              _id: "$subcategory",
-              totalProducts: {
-                $sum: 1,
-              },
-              products: {
-                $push: {
-                  productId: "$productId",
-                  name: "$name",
-                  description: "$description",
-                  price: "$price",
-                  mrp: "$mrp",
-                  stock: "$stock",
-                  brand: "$brand",
-                  category: "$category",
-                  subcategory: "$subcategory",
-                  variants: "$variants",
-                  sizeChartType: "$sizeChartType",
-                  productDetails: "$productDetails",
+              _id: {
+                $trim: {
+                  input: "$variants.color",
                 },
               },
             },
           },
           {
-            $project: {
-              _id: 0,
-              subcategory: "$_id",
-              totalProducts: 1,
-              products: {
-                $slice: ["$products", 4],
-              },
-            },
-          },
-          {
             $sort: {
-              subcategory: 1,
+              _id: 1,
             },
           },
         ]);
 
-        return Response.json({ sections });
+        return Response.json({
+          colors: colors.map((c) => c._id),
+        });
       }
 
       const page = Math.max(parseInt(searchParams.get("page")) || 1, 1);
       const limit = Math.min(parseInt(searchParams.get("limit")) || 8, 50);
       const skip = (page - 1) * limit;
 
-      const filter = { isActive: true };
-      if (category) filter.category = category;
+      const filter = {
+        isActive: true,
+      };
+
+      if (category) {
+        filter.category = category;
+      }
+
+      if (subcategory) {
+        filter.subcategory = subcategory;
+      }
+
+      if (color) {
+        filter["variants.color"] = {
+          $regex: new RegExp(`^${color}$`, "i"),
+        };
+      }
 
       const products = await Product.find(filter)
         .select(
