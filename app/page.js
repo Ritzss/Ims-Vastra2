@@ -833,11 +833,11 @@ export default function VastraDrobeIMS() {
   if (!search) return true;
 
   return (
-    inv.product?.name?.includes(search) ||
+    inv.product?.name?.toLowerCase().includes(search) ||
     String(inv.productId).includes(search) ||
-    inv.size?.includes(search) ||
-    inv.warehouseId?.name?.includes(search) ||
-    inv.warehouse?.name?.includes(search)
+    inv.size?.toLowerCase().includes(search) ||
+    inv.warehouseId?.name?.toLowerCase().includes(search) ||
+    inv.warehouse?.name?.toLowerCase().includes(search)
   );
 });
 
