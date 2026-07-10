@@ -71,6 +71,7 @@ export default function VastraDrobeIMS() {
   const [expandedProduct, setExpandedProduct] = useState(null);
   const [sortField, setSortField] = useState(null);
   const [sortOrder, setSortOrder] = useState("asc");
+  const [inventorySearch, setInventorySearch] = useState("");
 
   // Auth state
   const [email, setEmail] = useState("");
@@ -826,6 +827,20 @@ export default function VastraDrobeIMS() {
     return sortOrder === "asc" ? aValue - bValue : bValue - aValue;
   });
 
+  const filteredInventory = inventory.filter((inv) => {
+  const search = inventorySearch.toLowerCase().trim();
+
+  if (!search) return true;
+
+  return (
+    inv.product?.name?.toLowerCase().includes(search) ||
+    String(inv.productId).includes(search) ||
+    inv.size?.toLowerCase().includes(search) ||
+    inv.warehouseId?.name?.toLowerCase().includes(search) ||
+    inv.warehouse?.name?.toLowerCase().includes(search)
+  );
+});
+
   // useEffect(() => {
   //   const loadProducts = async () => {
   //     const data = await apiCall("/products/list");
@@ -1551,9 +1566,15 @@ export default function VastraDrobeIMS() {
                             <TableCell className="font-medium w-[30%]">
                               {product.name}
                             </TableCell>
-                            <TableCell className="capitalize">{product.brand}</TableCell>
-                            <TableCell className="capitalize">{product.category}</TableCell>
-                            <TableCell className="capitalize">{product.subcategory}</TableCell>
+                            <TableCell className="capitalize">
+                              {product.brand}
+                            </TableCell>
+                            <TableCell className="capitalize">
+                              {product.category}
+                            </TableCell>
+                            <TableCell className="capitalize">
+                              {product.subcategory}
+                            </TableCell>
                             <TableCell>₹{product.price}</TableCell>
                             <TableCell
                               className="cursor-pointer hover:underline"
@@ -1618,7 +1639,14 @@ export default function VastraDrobeIMS() {
           {/* Inventory Tab */}
           <TabsContent value="inventory" className="space-y-4">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
+                <Input
+                  placeholder="Search product..."
+                  value={inventorySearch}
+                  onChange={(e) => setInventorySearch(e.target.value)}
+                  className="w-72"
+                />
+
                 <Select
                   value={inventoryFilter}
                   onValueChange={setInventoryFilter}
@@ -1820,7 +1848,7 @@ export default function VastraDrobeIMS() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {inventory.map((inv) => (
+                    {filteredInventory.map((inv) => (
                       <TableRow key={inv._id || inv.id}>
                         <TableCell className="font-medium w-[50%]">
                           {inv.product?.name || "N/A"}
@@ -2177,7 +2205,9 @@ export default function VastraDrobeIMS() {
                             {movement.type}
                           </Badge>
                         </TableCell>
-                        <TableCell className="w-[60%]">{movement.product?.name || "N/A"}</TableCell>
+                        <TableCell className="w-[60%]">
+                          {movement.product?.name || "N/A"}
+                        </TableCell>
                         <TableCell>
                           {movement.fromWarehouseId?.name || "-"}
                         </TableCell>
