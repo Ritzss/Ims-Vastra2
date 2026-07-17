@@ -119,6 +119,18 @@ export default function VastraDrobeIMS() {
     delivered: "success",
   };
 
+  const STATUS_LABELS = {
+    pending: "Pending",
+    paid: "Paid",
+    packing: "Packing",
+    shipping: "Shipped",
+    out_for_delivery: "Out for Delivery",
+    delivered: "Delivered",
+    cancelled: "Cancelled",
+    returned: "Returned",
+    refunded: "Refunded",
+  };
+
   // Variants state
   // const [variants, setVariants] = useState([]);
   // const [variantForm, setVariantForm] = useState({
@@ -828,18 +840,18 @@ export default function VastraDrobeIMS() {
   });
 
   const filteredInventory = inventory.filter((inv) => {
-  const search = inventorySearch.toLowerCase().trim();
+    const search = inventorySearch.toLowerCase().trim();
 
-  if (!search) return true;
+    if (!search) return true;
 
-  return (
-    inv.product?.name?.toLowerCase().includes(search) ||
-    String(inv.productId).includes(search) ||
-    inv.size?.toLowerCase().includes(search) ||
-    inv.warehouseId?.name?.toLowerCase().includes(search) ||
-    inv.warehouse?.name?.toLowerCase().includes(search)
-  );
-});
+    return (
+      inv.product?.name?.toLowerCase().includes(search) ||
+      String(inv.productId).includes(search) ||
+      inv.size?.toLowerCase().includes(search) ||
+      inv.warehouseId?.name?.toLowerCase().includes(search) ||
+      inv.warehouse?.name?.toLowerCase().includes(search)
+    );
+  });
 
   // useEffect(() => {
   //   const loadProducts = async () => {
@@ -2296,7 +2308,7 @@ export default function VastraDrobeIMS() {
                           <Badge
                             variant={STATUS_COLORS[order.status] || "secondary"}
                           >
-                            {order.status}
+                            {STATUS_LABELS[order.status] || order.status}
                           </Badge>
                         </TableCell>
 
@@ -2331,12 +2343,50 @@ export default function VastraDrobeIMS() {
                             <Button
                               size="sm"
                               onClick={() =>
+                                updateOrderStatus(order.id, "out_for_delivery")
+                              }
+                            >
+                              Out for Delivery
+                            </Button>
+                          )}
+
+                          {order.status === "out_for_delivery" && (
+                            <Button
+                              size="sm"
+                              onClick={() =>
                                 updateOrderStatus(order.id, "delivered")
                               }
                             >
                               Mark Delivered
                             </Button>
                           )}
+
+                          {/* <Button
+                            onClick={async () => {
+                              // const token = localStorage.getItem("ims_token");
+                              const token = localStorage.getItem("token");
+
+                              console.log(token);
+
+                              const res = await fetch(
+                                "/api/ims/orders/send-email",
+                                {
+                                  method: "POST",
+                                  headers: {
+                                    Authorization: `Bearer ${token}`,
+                                    "Content-Type": "application/json",
+                                  },
+                                  body: JSON.stringify({
+                                    orderId: order.id,
+                                  }),
+                                },
+                              );
+
+                              console.log(await res.json());
+                            }}
+                          >
+                            Test Email
+                          </Button> */}
                         </TableCell>
                       </TableRow>
                     ))}

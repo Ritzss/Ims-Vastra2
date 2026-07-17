@@ -1,4 +1,4 @@
-import mongoose from "mongoose";
+import mongoose, { Schema } from "mongoose";
 
 // ========================
 // EXISTING VASTRADROBE SCHEMAS (Read-only references)
@@ -44,7 +44,16 @@ const ProductSchema = new mongoose.Schema(
 
     sizeChartType: {
       type: String,
-      enum: ["kidstopbottom", "fullSleeveTop", "ribbedTop","formalTopBottom", "generalTopBottom","MensShirt","MensKurta","menBottom"],
+      enum: [
+        "kidstopbottom",
+        "fullSleeveTop",
+        "ribbedTop",
+        "formalTopBottom",
+        "generalTopBottom",
+        "MensShirt",
+        "MensKurta",
+        "menBottom",
+      ],
     },
 
     productDetails: {
@@ -65,28 +74,171 @@ const ProductSchema = new mongoose.Schema(
 );
 
 // Orders Schema (Existing - Read-only)
+
 const OrderSchema = new mongoose.Schema(
   {
-    userId: { type: mongoose.Schema.Types.ObjectId, required: true },
+    userId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
+    // Order Identifiers
+    orderNumber: {
+      type: String,
+      unique: true,
+      required: true,
+    },
+
+    invoiceNumber: {
+      type: String,
+      unique: true,
+      sparse: true,
+    },
+
+    transactionId: {
+      type: Schema.Types.ObjectId,
+      ref: "Transaction",
+    },
+
+    // Ordered Products
     items: [
       {
-        productId: { type: Number },
-        title: { type: String, required: false },
-        name: { type: String }, // backward compatibility
-        price: { type: Number },
-        color: { type: String || null },
-        qty: { type: Number },
+        productId: {
+          type: Number,
+          required: true,
+        },
+
+        name: {
+          type: String,
+          required: true,
+        },
+
+        sku: String,
+
+        color: String,
+
+        size: {
+          type: String,
+          required: true,
+        },
+
+        quantity: {
+          type: Number,
+          required: true,
+        },
+
+        price: {
+          type: Number,
+          required: true,
+        },
+
+        total: {
+          type: Number,
+          required: true,
+        },
+
+        image: [String],
       },
     ],
-    totalAmount: { type: Number, required: true },
-    status: { type: String, required: true },
+
+    // Delivery Details
     deliveryAddress: {
-      address: { type: String, required: true },
-      phone: { type: String, required: true },
+      name: String,
+
+      email: String,
+
+      phone: {
+        type: String,
+        required: true,
+      },
+
+      address: {
+        type: String,
+        required: true,
+      },
+
+      city: String,
+
+      state: String,
+
+      pincode: String,
+
+      country: {
+        type: String,
+        default: "India",
+      },
     },
+
+    // Pricing
+    subtotal: {
+      type: Number,
+      required: true,
+    },
+
+    shippingCharge: {
+      type: Number,
+      default: 0,
+    },
+
+    discount: {
+      type: Number,
+      default: 0,
+    },
+
+    tax: {
+      type: Number,
+      default: 0,
+    },
+
+    totalAmount: {
+      type: Number,
+      required: true,
+    },
+
+    // Payment
+    paymentMethod: {
+      type: String,
+      enum: ["COD", "Razorpay", "UPI", "Card", "Net Banking"],
+      default: "COD",
+    },
+
+    paymentStatus: {
+      type: String,
+      enum: ["Pending", "Paid", "Failed", "Refunded"],
+      default: "Pending",
+    },
+
+    status: {
+      type: String,
+      enum: [
+        "pending",
+        "paid",
+        "packing",
+        "shipping",
+        "out_for_delivery",
+        "delivered",
+        "cancelled",
+        "returned",
+        "refunded",
+      ],
+      default: "pending",
+    },
+
+    payment: {
+      provider: String,
+      orderId: String,
+      paymentId: String,
+      signature: String,
+    },
+
+    invoiceUrl: String,
   },
-  { timestamps: true },
+  {
+    timestamps: true,
+  },
 );
+
+// export default mongoose.models.Order || mongoose.model("Order", OrderSchema);
 
 // Customer User Schema (Existing - Read-only)
 const CustomerUserSchema = new mongoose.Schema(
@@ -117,6 +269,87 @@ const CounterSchema = new mongoose.Schema({
 export const Counter =
   mongoose.models.Counter || mongoose.model("Counter", CounterSchema);
 
+const TransactionSchema = new Schema(
+  {
+    transactionNumber: {
+      type: String,
+      unique: true,
+      required: true,
+    },
+
+    orderId: {
+      type: Schema.Types.ObjectId,
+      ref: "Order",
+      required: true,
+    },
+
+    userId: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
+
+    provider: {
+      type: String,
+      default: "razorpay",
+    },
+
+    razorpayOrderId: String,
+    razorpayPaymentId: String,
+    razorpaySignature: String,
+
+    subtotal: {
+      type: Number,
+      required: true,
+    },
+
+    shippingCharge: {
+      type: Number,
+      default: 0,
+    },
+
+    discount: {
+      type: Number,
+      default: 0,
+    },
+
+    tax: {
+      type: Number,
+      default: 0,
+    },
+
+    totalAmount: {
+      type: Number,
+      required: true,
+    },
+
+    paymentMethod: String,
+
+    status: {
+      type: String,
+      enum: ["pending", "paid", "failed", "refunded"],
+      default: "paid",
+    },
+
+    invoiceNumber: String,
+
+    invoiceUrl: String,
+
+    currency: {
+      type: String,
+      default: "INR",
+    },
+
+    notes: String,
+  },
+  {
+    timestamps: true,
+  }
+);
+
+export const Transaction =
+  mongoose.models.Transaction ||
+  mongoose.model("Transaction", TransactionSchema);
 // ========================
 // IMS-SPECIFIC SCHEMAS (New collections)
 // ========================

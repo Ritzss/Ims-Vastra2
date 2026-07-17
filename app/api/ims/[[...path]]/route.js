@@ -9,6 +9,7 @@ export const maxDuration = 60;
 
 import { connectDB } from "@/lib/db";
 import { verifyToken, checkRole, generateToken } from "@/lib/auth";
+import { getOrderEmailTemplate } from "@/lib/email/orderEmailTemplate";
 import {
   Product,
   Orders,
@@ -18,6 +19,7 @@ import {
   IMSStockMovement,
   IMSActivityLog,
   Counter,
+  Transaction,
 } from "@/models/index";
 import {
   addStock,
@@ -787,6 +789,7 @@ export async function POST(request, { params }) {
         "paid",
         "packing",
         "shipping",
+        "out_for_delivery",
         "delivered",
       ];
 
@@ -894,6 +897,38 @@ export async function POST(request, { params }) {
       order.status = newStatus;
       await order.save();
 
+      const transaction = order.transactionId
+        ? await Transaction.findById(order.transactionId)
+        : null;
+
+      // Send Email Notification
+      try {
+        const response = await fetch("https://api.postmarkapp.com/email", {
+          method: "POST",
+          headers: {
+            Accept: "application/json",
+            "Content-Type": "application/json",
+            "X-Postmark-Server-Token": process.env.POSTMARK_API_TOKEN,
+          },
+          body: JSON.stringify({
+            From: process.env.POSTMARK_FROM_EMAIL,
+            To: order.deliveryAddress.email,
+            Subject: `Your Order ${order.orderNumber} is ${order.status.toUpperCase()}`,
+            HtmlBody: getOrderEmailTemplate(order, transaction),
+          }),
+        });
+
+        const postmarkResult = await response.json();
+
+        if (!response.ok) {
+          console.error("Postmark Error:", postmarkResult);
+        } else {
+          console.log("Email sent successfully");
+        }
+      } catch (err) {
+        console.error("Email Error:", err);
+      }
+
       await logActivity(
         user.id,
         "update_status",
@@ -909,6 +944,184 @@ export async function POST(request, { params }) {
         status: order.status,
       });
     }
+
+    // ----- ORDERS -----
+    // POST /api/ims/orders/send-email
+
+    // if (routePath === "orders/send-email") {
+    //   checkRole(user, ["admin", "inventory_manager"]);
+
+    //   try {
+    //     const { orderId } = await request.json();
+
+    //     const order = await Orders.findById(orderId);
+
+    //     if (!order) {
+    //       return Response.json({ error: "Order not found" }, { status: 404 });
+    //     }
+
+    //     const response = await fetch("https://api.postmarkapp.com/email", {
+    //       method: "POST",
+    //       headers: {
+    //         Accept: "application/json",
+    //         "Content-Type": "application/json",
+    //         "X-Postmark-Server-Token": process.env.POSTMARK_API_TOKEN,
+    //       },
+    //       body: JSON.stringify({
+    //         From: process.env.POSTMARK_FROM_EMAIL,
+    //         To: order.deliveryAddress.email,
+    //         Subject: `Your Order ${order.orderNumber} is ${order.status}`,
+    //         HtmlBody: `
+    //       <h2>Hello ${order.deliveryAddress.name},</h2>
+
+    //       <p>Your order status has been updated.</p>
+
+    //       <table border="1" cellpadding="8" cellspacing="0">
+    //         <tr>
+    //           <td><b>Order Number</b></td>
+    //           <td>${order.orderNumber}</td>
+    //         </tr>
+
+    //         <tr>
+    //           <td><b>Status</b></td>
+    //           <td>${order.status}</td>
+    //         </tr>
+
+    //         <tr>
+    //           <td><b>Total Amount</b></td>
+    //           <td>₹${order.totalAmount}</td>
+    //         </tr>
+    //       </table>
+
+    //       <br>
+
+    //       <p>You can track your order anytime from your VastraDrobe account.</p>
+
+    //       <br>
+
+    //       <p>Thank you for shopping with <b>VastraDrobe</b>.</p>
+    //     `,
+    //       }),
+    //     });
+
+    //     const result = await response.json();
+
+    //     if (!response.ok) {
+    //       return Response.json(
+    //         {
+    //           error: "Failed to send email",
+    //           postmark: result,
+    //         },
+    //         { status: 500 },
+    //       );
+    //     }
+
+    //     return Response.json({
+    //       success: true,
+    //       message: "Email sent successfully",
+    //       postmark: result,
+    //     });
+    //   } catch (error) {
+    //     console.error(error);
+
+    //     return Response.json(
+    //       {
+    //         error: error.message,
+    //         details: error.stack,
+    //       },
+    //       { status: 500 },
+    //     );
+    //   }
+    // }
+    // // POST /api/ims/orders/send-notification
+    // if (routePath === "orders/send-notification") {
+    //   checkRole(user, ["admin", "inventory_manager"]);
+
+    //   const { orderId } = await request.json();
+
+    //   if (!orderId) {
+    //     return Response.json(
+    //       { error: "Order ID is required" },
+    //       { status: 400 },
+    //     );
+    //   }
+
+    //   // Get Order
+    //   const order = await Orders.findById(orderId);
+
+    //   if (!order) {
+    //     return Response.json({ error: "Order not found" }, { status: 404 });
+    //   }
+
+    //   // Get Customer
+    //   const customer = await User.findById(order.userId);
+
+    //   if (!customer) {
+    //     return Response.json({ error: "Customer not found" }, { status: 404 });
+    //   }
+
+    //   const orderNumber = order._id.toString().slice(-8);
+
+    //   // ------------------------
+    //   // Email (Postmark)
+    //   // ------------------------
+
+    //   if (customer.email) {
+    //     await fetch("https://api.postmarkapp.com/email", {
+    //       method: "POST",
+    //       headers: {
+    //         Accept: "application/json",
+    //         "Content-Type": "application/json",
+    //         "X-Postmark-Server-Token": process.env.POSTMARK_API_TOKEN,
+    //       },
+    //       body: JSON.stringify({
+    //         From: "orders@vastradrobe.com",
+    //         To: customer.email,
+    //         Subject: `Order ${order.status}`,
+    //         HtmlBody: `
+    //       <h2>Hello ${customer.name}</h2>
+
+    //       <p>Your order status has been updated.</p>
+
+    //       <p><strong>Status:</strong> ${order.status}</p>
+
+    //       <p><strong>Order Number:</strong> ${orderNumber}</p>
+
+    //       <p>Thank you for shopping with VastraDrobe.</p>
+    //     `,
+    //         MessageStream: "outbound",
+    //       }),
+    //     });
+    //   }
+
+    //   // ------------------------
+    //   // SMS (MSG91)
+    //   // ------------------------
+
+    //   if (customer.phone) {
+    //     await fetch("https://control.msg91.com/api/v5/flow/", {
+    //       method: "POST",
+    //       headers: {
+    //         authkey: process.env.MSG91_AUTH_KEY,
+    //         "Content-Type": "application/json",
+    //       },
+    //       body: JSON.stringify({
+    //         flow_id: process.env.MSG91_ORDER_STATUS_FLOW_ID,
+    //         sender: "VSTRDB",
+    //         mobiles: `91${customer.phone}`,
+
+    //         VAR1: customer.name,
+    //         VAR2: orderNumber,
+    //         VAR3: order.status,
+    //       }),
+    //     });
+    //   }
+
+    //   return Response.json({
+    //     success: true,
+    //     message: "Notification sent successfully",
+    //   });
+    // }
 
     // ----- ADMIN USERS -----
 
