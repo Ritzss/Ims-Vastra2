@@ -697,6 +697,41 @@ export default function VastraDrobeIMS() {
     }
   };
 
+  const exportExcel = async () => {
+    try {
+      const token = localStorage.getItem("token");
+
+      const res = await fetch("/api/ims/stock-movements/export", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!res.ok) {
+        throw new Error("Export failed");
+      }
+
+      const blob = await res.blob();
+
+      const url = window.URL.createObjectURL(blob);
+
+      const a = document.createElement("a");
+
+      a.href = url;
+      a.download = "Stock-Movement-Report.xlsx";
+
+      document.body.appendChild(a);
+
+      a.click();
+
+      a.remove();
+
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   const createUser = async () => {
     try {
       setAddingUser(true);
@@ -1983,6 +2018,9 @@ export default function VastraDrobeIMS() {
                     Record Movement
                   </Button>
                 </DialogTrigger>
+                <Button variant="outline" onClick={exportExcel}>
+                  Export Excel
+                </Button>
                 <DialogContent className="max-w-2xl">
                   <DialogHeader>
                     <DialogTitle>Record Stock Movement</DialogTitle>
@@ -2317,6 +2355,19 @@ export default function VastraDrobeIMS() {
                         </TableCell>
 
                         <TableCell className="space-x-2">
+                          {/* COD Orders */}
+                          {order.status === "pending" && (
+                              <Button
+                                size="sm"
+                                onClick={() =>
+                                  updateOrderStatus(order.id, "paid")
+                                }
+                              >
+                                Mark Paid
+                              </Button>
+                            )}
+
+                          {/* Online / Paid Orders */}
                           {order.status === "paid" && (
                             <Button
                               size="sm"
@@ -2360,34 +2411,9 @@ export default function VastraDrobeIMS() {
                               Mark Delivered
                             </Button>
                           )}
-
-                          {/* <Button
-                            onClick={async () => {
-                              // const token = localStorage.getItem("ims_token");
-                              const token = localStorage.getItem("token");
-
-                              console.log(token);
-
-                              const res = await fetch(
-                                "/api/ims/orders/send-email",
-                                {
-                                  method: "POST",
-                                  headers: {
-                                    Authorization: `Bearer ${token}`,
-                                    "Content-Type": "application/json",
-                                  },
-                                  body: JSON.stringify({
-                                    orderId: order.id,
-                                  }),
-                                },
-                              );
-
-                              console.log(await res.json());
-                            }}
-                          >
-                            Test Email
-                          </Button> */}
                         </TableCell>
+
+                        
                       </TableRow>
                     ))}
                   </TableBody>

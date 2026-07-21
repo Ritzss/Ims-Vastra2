@@ -34,6 +34,7 @@ import {
 import bcrypt from "bcryptjs";
 import { runTransaction } from "@/lib/runTransaction";
 import cloudinary from "@/lib/cloudinary";
+import ExcelJS from "exceljs";
 
 // Helper to log activities
 async function logActivity(
@@ -1693,6 +1694,94 @@ export async function GET(request, { params }) {
       return Response.json({
         movements: enrichedMovements,
         total: enrichedMovements.length,
+      });
+    }
+
+    if (routePath === "stock-movements/export") {
+      const workbook = new ExcelJS.Workbook();
+
+      const sheet = workbook.addWorksheet("Stock Movements");
+
+      sheet.columns = [
+        { header: "Date", key: "date", width: 22 },
+        { header: "Product", key: "product", width: 45 },
+        { header: "Size", key: "size", width: 12 },
+        { header: "Movement", key: "type", width: 15 },
+        { header: "Quantity", key: "quantity", width: 12 },
+        { header: "From Warehouse", key: "from", width: 30 },
+        { header: "To Warehouse", key: "to", width: 30 },
+        { header: "Reference", key: "reference", width: 25 },
+        { header: "Reason", key: "reason", width: 25 },
+        { header: "Performed By", key: "performedBy", width: 25 },
+      ];
+
+      sheet.getRow(1).font = {
+        bold: true,
+        color: { argb: "FFFFFFFF" },
+      };
+
+      sheet.getRow(1).fill = {
+        type: "pattern",
+        pattern: "solid",
+        fgColor: { argb: "1F4E78" },
+      };
+
+      sheet.getRow(1).alignment = {
+        horizontal: "center",
+        vertical: "middle",
+      };
+
+      const movements = await IMSStockMovement.find()
+        .populate("fromWarehouseId")
+        .populate("toWarehouseId")
+        .populate("performedBy", "name")
+        .sort({ createdAt: -1 })
+        .lean();
+
+      for (const movement of movements) {
+        const product = await Product.findOne({
+          productId: movement.productId,
+        }).lean();
+
+        sheet.addRow({
+          date: new Date(movement.createdAt).toLocaleString(),
+          product: product?.name || "Unknown Product",
+          size: movement.size,
+          type: movement.type.toUpperCase(),
+          quantity: movement.quantity,
+          from: movement.fromWarehouseId?.name || "-",
+          to: movement.toWarehouseId?.name || "-",
+          reference: movement.referenceNumber || "-",
+          reason: movement.reason || "-",
+          performedBy: movement.performedBy?.name || "-",
+        });
+      }
+
+      sheet.eachRow((row) => {
+        row.eachCell((cell) => {
+          cell.border = {
+            top: { style: "thin" },
+            bottom: { style: "thin" },
+            left: { style: "thin" },
+            right: { style: "thin" },
+          };
+
+          cell.alignment = {
+            vertical: "middle",
+            horizontal: "center",
+          };
+        });
+      });
+
+      const buffer = await workbook.xlsx.writeBuffer();
+
+      return new Response(buffer, {
+        headers: {
+          "Content-Type":
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          "Content-Disposition":
+            'attachment; filename="Stock-Movement-Report.xlsx"',
+        },
       });
     }
 
