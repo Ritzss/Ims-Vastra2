@@ -358,7 +358,7 @@ export default function VastraDrobeIMS() {
     try {
       const data = await apiCall("/orders/list");
       setOrders(data.orders);
-      console.log(orders);
+      // console.log(orders);
       
     } catch (error) {
       toast.error("Failed to load orders");
