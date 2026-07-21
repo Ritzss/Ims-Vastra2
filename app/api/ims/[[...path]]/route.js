@@ -785,14 +785,33 @@ export async function POST(request, { params }) {
         );
       }
 
-      const STATUS_FLOW = [
-        "pending",
-        "paid",
-        "packing",
-        "shipping",
-        "out_for_delivery",
-        "delivered",
-      ];
+      
+
+      const order = await Orders.findById(orderId);
+      if (!order) {
+        return Response.json({ error: "Order not found" }, { status: 404 });
+      }
+
+      let STATUS_FLOW = [];
+
+      if (order.paymentMethod === "COD") {
+        STATUS_FLOW = [
+          "pending",
+          "packing",
+          "shipping",
+          "out_for_delivery",
+          "delivered",
+          "paid",
+        ];
+      } else {
+        STATUS_FLOW = [
+          "paid",
+          "packing",
+          "shipping",
+          "out_for_delivery",
+          "delivered",
+        ];
+      }
 
       if (!STATUS_FLOW.includes(newStatus)) {
         return Response.json(
@@ -801,15 +820,10 @@ export async function POST(request, { params }) {
         );
       }
 
-      const order = await Orders.findById(orderId);
-      if (!order) {
-        return Response.json({ error: "Order not found" }, { status: 404 });
-      }
-
       const currentIndex = STATUS_FLOW.indexOf(order.status);
       const nextIndex = STATUS_FLOW.indexOf(newStatus);
 
-      if (nextIndex <= currentIndex) {
+      if (nextIndex !== currentIndex + 1) {
         return Response.json(
           { error: "Invalid status transition" },
           { status: 400 },
@@ -1904,7 +1918,9 @@ export async function GET(request, { params }) {
         items: order.items,
         totalAmount: order.totalAmount,
         deliveryAddress: order.deliveryAddress,
-        status: order.status, // pending | paid | packing | shipping | delivered
+        status: order.status,
+        paymentMethod: order.paymentMethod,
+        paymentStatus: order.paymentStatus,
         createdAt: order.createdAt,
         updatedAt: order.updatedAt,
       }));

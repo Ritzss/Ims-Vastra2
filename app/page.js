@@ -358,6 +358,8 @@ export default function VastraDrobeIMS() {
     try {
       const data = await apiCall("/orders/list");
       setOrders(data.orders);
+      console.log(orders);
+      
     } catch (error) {
       toast.error("Failed to load orders");
     }
@@ -2006,7 +2008,12 @@ export default function VastraDrobeIMS() {
           {/* Stock Movements Tab */}
           <TabsContent value="movements" className="space-y-4">
             <div className="flex items-center justify-between">
-              <h2 className="text-xl font-semibold">Stock Movements</h2>
+              <div className="flex gap-5 items-center justify-center">
+                <h2 className="text-xl font-semibold">Stock Movements</h2>
+                <Button variant="outline" onClick={exportExcel}>
+                  Export Excel
+                </Button>
+              </div>
 
               <Dialog
                 open={showMovementDialog}
@@ -2018,9 +2025,6 @@ export default function VastraDrobeIMS() {
                     Record Movement
                   </Button>
                 </DialogTrigger>
-                <Button variant="outline" onClick={exportExcel}>
-                  Export Excel
-                </Button>
                 <DialogContent className="max-w-2xl">
                   <DialogHeader>
                     <DialogTitle>Record Stock Movement</DialogTitle>
@@ -2355,20 +2359,8 @@ export default function VastraDrobeIMS() {
                         </TableCell>
 
                         <TableCell className="space-x-2">
-                          {/* COD Orders */}
+                          {/* Pending */}
                           {order.status === "pending" && (
-                              <Button
-                                size="sm"
-                                onClick={() =>
-                                  updateOrderStatus(order.id, "paid")
-                                }
-                              >
-                                Mark Paid
-                              </Button>
-                            )}
-
-                          {/* Online / Paid Orders */}
-                          {order.status === "paid" && (
                             <Button
                               size="sm"
                               onClick={() =>
@@ -2379,6 +2371,7 @@ export default function VastraDrobeIMS() {
                             </Button>
                           )}
 
+                          {/* Packing */}
                           {order.status === "packing" && (
                             <Button
                               size="sm"
@@ -2390,6 +2383,7 @@ export default function VastraDrobeIMS() {
                             </Button>
                           )}
 
+                          {/* Shipping */}
                           {order.status === "shipping" && (
                             <Button
                               size="sm"
@@ -2401,6 +2395,7 @@ export default function VastraDrobeIMS() {
                             </Button>
                           )}
 
+                          {/* Out For Delivery */}
                           {order.status === "out_for_delivery" && (
                             <Button
                               size="sm"
@@ -2411,9 +2406,26 @@ export default function VastraDrobeIMS() {
                               Mark Delivered
                             </Button>
                           )}
-                        </TableCell>
 
-                        
+                          {/* COD - Collect payment after delivery */}
+                          {order.status === "delivered" &&
+                            order.paymentMethod === "COD" && (
+                              <Button
+                                size="sm"
+                                onClick={() =>
+                                  updateOrderStatus(order.id, "paid")
+                                }
+                              >
+                                Mark Paid
+                              </Button>
+                            )}
+
+                          {/* Online Orders */}
+                          {order.status === "paid" &&
+                            order.paymentMethod !== "COD" && (
+                              <Badge className="bg-green-600">Completed</Badge>
+                            )}
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
