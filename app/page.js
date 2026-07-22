@@ -88,6 +88,7 @@ export default function VastraDrobeIMS() {
     category: "",
     subcategory: "",
     color: "",
+    design: "",
     brand: "",
     price: 0,
     mrp: 0,
@@ -359,7 +360,6 @@ export default function VastraDrobeIMS() {
       const data = await apiCall("/orders/list");
       setOrders(data.orders);
       // console.log(orders);
-      
     } catch (error) {
       toast.error("Failed to load orders");
     }
@@ -400,6 +400,7 @@ export default function VastraDrobeIMS() {
 
       // 🔥 VARIANT FIELDS
       formData.append("color", productForm.color); // single string
+      formData.append("design", productForm.design || "");
       formData.append("sizes", productForm.sizes); // comma separated string
 
       formData.append("sizeChartType", productForm.sizeChartType || "");
@@ -439,6 +440,7 @@ export default function VastraDrobeIMS() {
         mrp: 0,
         sizes: "",
         color: "",
+        design: "",
         images: [],
         sizeChartType: "",
         productDetails: {
@@ -1210,7 +1212,7 @@ export default function VastraDrobeIMS() {
                         Add Product
                       </Button>
                     </DialogTrigger>
-                    <DialogContent>
+                    <DialogContent className="max-h-[90vh] overflow-y-auto">
                       <DialogHeader>
                         <DialogTitle>
                           {isEditingProduct
@@ -1292,6 +1294,19 @@ export default function VastraDrobeIMS() {
                                 setProductForm({
                                   ...productForm,
                                   color: e.target.value,
+                                })
+                              }
+                            />
+                          </div>
+                          <div>
+                            <Label>Variant Design (Optional)</Label>
+                            <Input
+                              placeholder="Little Star, Leopard, Bicycle..."
+                              value={productForm.design || ""}
+                              onChange={(e) =>
+                                setProductForm({
+                                  ...productForm,
+                                  design: e.target.value,
                                 })
                               }
                             />
@@ -1739,7 +1754,7 @@ export default function VastraDrobeIMS() {
                       Add Inventory
                     </Button>
                   </DialogTrigger>
-                  <DialogContent>
+                  <DialogContent className="max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
                       <DialogTitle>Add New Inventory</DialogTitle>
                       <DialogDescription>
@@ -1944,7 +1959,7 @@ export default function VastraDrobeIMS() {
               open={showEditInventoryDialog}
               onOpenChange={setShowEditInventoryDialog}
             >
-              <DialogContent>
+              <DialogContent className="max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                   <DialogTitle>Edit Inventory</DialogTitle>
                   <DialogDescription>
@@ -2450,7 +2465,7 @@ export default function VastraDrobeIMS() {
                       Add Location
                     </Button>
                   </DialogTrigger>
-                  <DialogContent>
+                  <DialogContent className="max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
                       <DialogTitle>
                         {isEditingWarehouse
@@ -2609,7 +2624,7 @@ export default function VastraDrobeIMS() {
                 <h2 className="text-xl font-semibold">Users</h2>
                 <Button onClick={() => setAddUserOpen(true)}>
                   <Dialog open={addUserOpen} onOpenChange={setAddUserOpen}>
-                    <DialogContent>
+                    <DialogContent className="max-h-[90vh] overflow-y-auto">
                       <DialogHeader>
                         <DialogTitle>Add New User</DialogTitle>
                         <DialogDescription>

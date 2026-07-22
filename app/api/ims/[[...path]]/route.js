@@ -185,6 +185,7 @@ export async function POST(request, { params }) {
       const brand = formData.get("brand");
       const price = Number(formData.get("price"));
       const mrp = Number(formData.get("mrp"));
+      const design = formData.get("design")?.trim();
 
       const sizes = (formData.get("sizes") || "")
         .split(",")
@@ -279,21 +280,50 @@ export async function POST(request, { params }) {
       });
 
       if (existingProduct) {
-        await Product.updateOne(
-          { _id: existingProduct._id },
-          {
-            $push: {
-              variants: {
-                color,
-                images: imagePaths,
-                sizes,
-              },
-            },
-          },
+        const existingVariant = existingProduct.variants.find(
+          (v) => v.color === color,
         );
 
+        if (existingVariant) {
+          if (design) {
+            existingVariant.designs = existingVariant.designs || [];
+
+            existingVariant.designs.push({
+              design,
+              images: imagePaths,
+              sizes,
+            });
+          } else {
+            existingVariant.images = imagePaths;
+            existingVariant.sizes = sizes;
+          }
+        } else {
+          existingProduct.variants.push(
+            design
+              ? {
+                  color,
+                  images: [],
+                  sizes: [],
+                  designs: [
+                    {
+                      design,
+                      images: imagePaths,
+                      sizes,
+                    },
+                  ],
+                }
+              : {
+                  color,
+                  images: imagePaths,
+                  sizes,
+                },
+          );
+        }
+
+        await existingProduct.save();
+
         return Response.json({
-          message: "Variant added to existing product",
+          message: "Variant added successfully",
         });
       }
 
@@ -329,11 +359,24 @@ export async function POST(request, { params }) {
         sizeChartType,
         productDetails,
         variants: [
-          {
-            color,
-            images: imagePaths,
-            sizes,
-          },
+          design
+            ? {
+                color,
+                images: [],
+                sizes: [],
+                designs: [
+                  {
+                    design,
+                    images: imagePaths,
+                    sizes,
+                  },
+                ],
+              }
+            : {
+                color,
+                images: imagePaths,
+                sizes,
+              },
         ],
       });
 
@@ -784,8 +827,6 @@ export async function POST(request, { params }) {
           { status: 400 },
         );
       }
-
-      
 
       const order = await Orders.findById(orderId);
       if (!order) {

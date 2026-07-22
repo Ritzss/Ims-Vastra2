@@ -27,6 +27,28 @@ const ProductSchema = new mongoose.Schema(
           type: [String],
           default: [],
         },
+        designs: [
+          {
+            design: {
+              type: String,
+              required: true,
+            },
+
+            images: {
+              type: [String],
+              default: [],
+            },
+
+            sizes: {
+              type: [String],
+              default: [],
+            },
+
+            sku: String,
+            price: Number,
+            mrp: Number,
+          },
+        ],
       },
     ],
     description: { type: String },
@@ -344,7 +366,7 @@ const TransactionSchema = new Schema(
   },
   {
     timestamps: true,
-  }
+  },
 );
 
 export const Transaction =
