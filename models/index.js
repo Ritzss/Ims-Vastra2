@@ -68,6 +68,7 @@ const ProductSchema = new mongoose.Schema(
       type: String,
       enum: [
         "kidstopbottom",
+        "kidsFleeceHoodie",
         "fullSleeveTop",
         "ribbedTop",
         "formalTopBottom",

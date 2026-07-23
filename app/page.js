@@ -1387,6 +1387,9 @@ export default function VastraDrobeIMS() {
                                 <SelectItem value="kidstopbottom">
                                   Kids Top-Bottom
                                 </SelectItem>
+                                <SelectItem value="kidsFleeceHoodie">
+                                  Kids Hoodie
+                                </SelectItem>
                                 <SelectItem value="fullSleeveTop">
                                   Full Sleeve Top
                                 </SelectItem>
