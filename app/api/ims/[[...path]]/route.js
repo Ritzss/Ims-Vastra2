@@ -35,6 +35,7 @@ import bcrypt from "bcryptjs";
 import { runTransaction } from "@/lib/runTransaction";
 import cloudinary from "@/lib/cloudinary";
 import ExcelJS from "exceljs";
+import { calculateTotalQuantity } from "@/lib/inventoryUtils";
 
 // Helper to log activities
 async function logActivity(
@@ -618,19 +619,21 @@ export async function POST(request, { params }) {
       const {
         productId,
         warehouseId,
+        color,
+        design,
         size,
         quantity,
         reason,
         referenceNumber,
       } = body;
 
-      if (!Number.isInteger(productId) || productId < 0) {
-        return Response.json({ error: "Invalid product ID" }, { status: 400 });
+      if (!Number.isInteger(productId) || productId <= 0) {
+        return Response.json({ error: "Invalid Product ID" }, { status: 400 });
       }
 
-      if (!warehouseId || !size || quantity < 0) {
+      if (!warehouseId || !color || !size || quantity <= 0) {
         return Response.json(
-          { error: "Invalid inventory data" },
+          { error: "Missing required fields" },
           { status: 400 },
         );
       }
@@ -638,14 +641,17 @@ export async function POST(request, { params }) {
       const inventory = await addStock(
         productId,
         warehouseId,
+        color,
+        design || null,
         size,
-        quantity,
+        Number(quantity),
         user.id,
         reason,
         referenceNumber,
       );
 
       return Response.json({
+        success: true,
         message: "Stock added successfully",
         inventory,
       });
@@ -659,6 +665,8 @@ export async function POST(request, { params }) {
       const {
         productId,
         warehouseId,
+        color,
+        design,
         size,
         quantity,
         reason,
@@ -666,16 +674,19 @@ export async function POST(request, { params }) {
       } = body;
 
       const inventory = await removeStock(
-        parseInt(productId),
+        Number(productId),
         warehouseId,
+        color,
+        design || null,
         size,
-        parseInt(quantity),
+        Number(quantity),
         user.id,
         reason,
         referenceNumber,
       );
 
       return Response.json({
+        success: true,
         message: "Stock removed successfully",
         inventory,
       });
@@ -690,6 +701,8 @@ export async function POST(request, { params }) {
         productId,
         fromWarehouseId,
         toWarehouseId,
+        color,
+        design,
         size,
         quantity,
         reason,
@@ -697,20 +710,19 @@ export async function POST(request, { params }) {
       } = body;
 
       const result = await transferStock(
-        parseInt(productId),
+        Number(productId),
         fromWarehouseId,
         toWarehouseId,
+        color,
+        design || null,
         size,
-        parseInt(quantity),
+        Number(quantity),
         user.id,
         reason,
         referenceNumber,
       );
 
-      return Response.json({
-        message: "Stock transferred successfully",
-        ...result,
-      });
+      return Response.json(result);
     }
 
     if (routePath === "inventory/record-sale") {
@@ -718,19 +730,30 @@ export async function POST(request, { params }) {
 
       checkRole(user, ["admin", "inventory_manager"]);
 
-      const { productId, warehouseId, size, quantity, orderNumber } = body;
+      const {
+        productId,
+        warehouseId,
+        color,
+        design,
+        size,
+        quantity,
+        orderNumber,
+      } = body;
 
       const inventory = await recordSale(
-        parseInt(productId),
+        Number(productId),
         warehouseId,
+        color,
+        design || null,
         size,
-        parseInt(quantity),
+        Number(quantity),
         user.id,
         orderNumber,
       );
 
       return Response.json({
-        message: "Sale recorded and stock deducted",
+        success: true,
+        message: "Sale recorded successfully",
         inventory,
       });
     }
@@ -740,19 +763,30 @@ export async function POST(request, { params }) {
 
       checkRole(user, ["admin", "inventory_manager"]);
 
-      const { productId, warehouseId, size, quantity, orderNumber } = body;
+      const {
+        productId,
+        warehouseId,
+        color,
+        design,
+        size,
+        quantity,
+        orderNumber,
+      } = body;
 
       const inventory = await recordReturn(
-        parseInt(productId),
+        Number(productId),
         warehouseId,
+        color,
+        design || null,
         size,
-        parseInt(quantity),
+        Number(quantity),
         user.id,
         orderNumber,
       );
 
       return Response.json({
-        message: "Return recorded and stock added back",
+        success: true,
+        message: "Return recorded successfully",
         inventory,
       });
     }
@@ -762,41 +796,84 @@ export async function POST(request, { params }) {
 
       checkRole(user, ["admin", "inventory_manager"]);
 
-      const { inventoryId, quantity, reorderLevel, reorderQuantity } = body;
-
-      const inventory = await IMSInventory.findByIdAndUpdate(
+      const {
         inventoryId,
-        {
-          $set: {
-            quantity: parseInt(quantity),
-            reorderLevel: parseInt(reorderLevel),
-            reorderQuantity: parseInt(reorderQuantity),
-            lastUpdated: new Date(),
-            updatedBy: user.id,
-          },
-        },
-        { new: true },
-      ).populate("warehouseId");
+        color,
+        design,
+        size,
+        quantity,
+        reorderLevel,
+        reorderQuantity,
+      } = body;
+
+      const inventory = await IMSInventory.findById(inventoryId);
 
       if (!inventory) {
         return Response.json(
-          { error: "Inventory record not found" },
-          { status: 404 },
+          {
+            error: "Inventory not found",
+          },
+          {
+            status: 404,
+          },
         );
       }
 
-      // Update product total stock
-      const allInventory = await IMSInventory.find({
+      const product = await Product.findOne({
         productId: inventory.productId,
       });
-      const totalStock = allInventory.reduce(
-        (sum, inv) => sum + inv.quantity,
-        0,
-      );
-      await Product.updateOne(
-        { productId: inventory.productId },
-        { $set: { stock: totalStock } },
-      );
+
+      if (!product) {
+        return Response.json(
+          {
+            error: "Product not found",
+          },
+          {
+            status: 404,
+          },
+        );
+      }
+
+      const productVariant = getProductVariant(product, color);
+
+      if (!productVariant) {
+        return Response.json(
+          {
+            error: "Color not found",
+          },
+          {
+            status: 404,
+          },
+        );
+      }
+
+      const variant = getInventoryVariant(inventory, color);
+
+      let sizeNode;
+
+      if (hasDesign(productVariant)) {
+        const designNode = getDesign(variant, design);
+
+        sizeNode = getSize(designNode, size);
+      } else {
+        sizeNode = getSize(variant, size);
+      }
+
+      sizeNode.quantity = Number(quantity);
+
+      sizeNode.reorderLevel = Number(reorderLevel);
+
+      sizeNode.reorderQuantity = Number(reorderQuantity);
+
+      inventory.totalQuantity = calculateTotalQuantity(inventory);
+
+      inventory.lastUpdated = new Date();
+
+      inventory.updatedBy = user.id;
+
+      await inventory.save();
+
+      await updateProductTotalStock(inventory.productId);
 
       await logActivity(
         user.id,
@@ -804,11 +881,19 @@ export async function POST(request, { params }) {
         "inventory",
         inventoryId,
         null,
-        { quantity, reorderLevel, reorderQuantity },
+        {
+          color,
+          design,
+          size,
+          quantity,
+          reorderLevel,
+          reorderQuantity,
+        },
         request.headers.get("x-forwarded-for"),
       );
 
       return Response.json({
+        success: true,
         message: "Inventory updated successfully",
         inventory,
       });
@@ -998,6 +1083,262 @@ export async function POST(request, { params }) {
       return Response.json({
         message: "Order status updated",
         status: order.status,
+      });
+    }
+
+    if (routePath === "orders/cancel") {
+      checkRole(user, ["admin", "inventory_manager"]);
+
+      const { orderId, reason, note } = await request.json();
+
+      if (!orderId || !reason) {
+        return Response.json(
+          {
+            error: "Order ID and cancellation reason are required",
+          },
+          {
+            status: 400,
+          },
+        );
+      }
+
+      const order = await Orders.findById(orderId);
+
+      if (!order) {
+        return Response.json(
+          {
+            error: "Order not found",
+          },
+          {
+            status: 404,
+          },
+        );
+      }
+
+      // Prevent cancelling shipped orders
+      if (
+        [
+          "shipping",
+          "out_for_delivery",
+          "delivered",
+          "returned",
+          "refunded",
+        ].includes(order.status)
+      ) {
+        return Response.json(
+          {
+            error: "This order can no longer be cancelled.",
+          },
+          {
+            status: 400,
+          },
+        );
+      }
+
+      // Restore inventory only if stock was deducted
+      if (order.status === "packing") {
+        await runTransaction(async (session) => {
+          for (const rawItem of order.items) {
+            const item = rawItem.toObject ? rawItem.toObject() : rawItem;
+
+            const warehouse = await IMSWarehouse.findOne().session(session);
+
+            if (!warehouse) {
+              throw new Error("Warehouse not found");
+            }
+
+            await IMSInventory.updateOne(
+              {
+                productId: item.productId,
+                warehouseId: warehouse._id,
+                size: item.size,
+              },
+              {
+                $inc: {
+                  quantity: item.quantity,
+                },
+                $set: {
+                  updatedBy: user.id,
+                  lastUpdated: new Date(),
+                },
+              },
+              {
+                session,
+              },
+            );
+
+            await IMSStockMovement.create(
+              [
+                {
+                  productId: item.productId,
+                  size: item.size,
+                  quantity: item.quantity,
+                  type: "return",
+                  toWarehouseId: warehouse._id,
+                  performedBy: user.id,
+                  reason: "Order Cancelled",
+                  referenceNumber: order.orderNumber,
+                },
+              ],
+              {
+                session,
+              },
+            );
+          }
+        });
+      }
+
+      // Update Order
+
+      order.status = "cancelled";
+
+      order.cancelDetails = {
+        isCancelled: true,
+        reason,
+        customReason: note || "",
+        cancelledBy: user.id,
+        cancelledAt: new Date(),
+      };
+
+      order.history.push({
+        action: "Order Cancelled",
+        status: "cancelled",
+        description: `${reason}${note ? ` - ${note}` : ""}`,
+        performedBy: user.id,
+        createdAt: new Date(),
+      });
+
+      await order.save();
+
+      // ===============================
+      // CUSTOMER NOTIFICATIONS
+      // ===============================
+
+      // Send Email
+      if (order.deliveryAddress?.email) {
+        try {
+          const response = await fetch("https://api.postmarkapp.com/email", {
+            method: "POST",
+            headers: {
+              Accept: "application/json",
+              "Content-Type": "application/json",
+              "X-Postmark-Server-Token": process.env.POSTMARK_API_TOKEN,
+            },
+            body: JSON.stringify({
+              From: process.env.POSTMARK_FROM_EMAIL,
+              To: order.deliveryAddress.email,
+              Subject: `Order ${order.orderNumber} Cancelled`,
+              HtmlBody: `
+          <h2>Hello ${order.deliveryAddress.name || "Customer"},</h2>
+
+          <p>Your order has been cancelled.</p>
+
+          <table border="1" cellpadding="8" cellspacing="0">
+            <tr>
+              <td><b>Order Number</b></td>
+              <td>${order.orderNumber}</td>
+            </tr>
+
+            <tr>
+              <td><b>Reason</b></td>
+              <td>${reason}</td>
+            </tr>
+
+            ${
+              note
+                ? `
+            <tr>
+              <td><b>Additional Information</b></td>
+              <td>${note}</td>
+            </tr>`
+                : ""
+            }
+
+            <tr>
+              <td><b>Refund</b></td>
+              <td>${
+                order.paymentMethod === "COD"
+                  ? "No payment was collected."
+                  : "If payment has already been received, your refund will be processed within 3-5 working days."
+              }</td>
+            </tr>
+          </table>
+
+          <br>
+
+          <p>We sincerely apologize for the inconvenience.</p>
+
+          <p><b>Team VastraDrobe</b></p>
+        `,
+            }),
+          });
+
+          if (!response.ok) {
+            console.error("Postmark Error:", await response.text());
+          } else {
+            console.log("Cancellation email sent");
+          }
+        } catch (err) {
+          console.error("Email Error:", err);
+        }
+      }
+
+      // Send SMS
+      if (order.deliveryAddress?.phone) {
+        try {
+          const response = await fetch(
+            "https://control.msg91.com/api/v5/flow/",
+            {
+              method: "POST",
+              headers: {
+                authkey: process.env.MSG91_AUTH_KEY,
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                flow_id: process.env.MSG91_ORDER_CANCEL_FLOW_ID,
+
+                sender: "VSTRDB",
+
+                mobiles: `91${order.deliveryAddress.phone}`,
+
+                CUSTOMER_NAME: order.deliveryAddress.name || "Customer",
+
+                ORDER_NUMBER: order.orderNumber,
+
+                REASON: reason,
+              }),
+            },
+          );
+
+          const result = await response.json();
+
+          if (!response.ok) {
+            console.error("MSG91 Error:", result);
+          } else {
+            console.log("Cancellation SMS sent");
+          }
+        } catch (err) {
+          console.error("SMS Error:", err);
+        }
+      }
+
+      await logActivity(
+        user.id,
+        "cancel_order",
+        "order",
+        orderId,
+        null,
+        {
+          reason,
+          note,
+        },
+        request.headers.get("x-forwarded-for"),
+      );
+
+      return Response.json({
+        success: true,
+        message: "Order cancelled successfully",
+        order,
       });
     }
 
@@ -1552,40 +1893,58 @@ export async function GET(request, { params }) {
     //   });
     // }
     if (routePath === "public/inventory/list") {
-      const productId = parseInt(searchParams.get("productId"));
-      const size = searchParams.get("size");
+      const productId = Number(searchParams.get("productId"));
 
       if (!Number.isInteger(productId)) {
         return Response.json({ error: "Invalid product ID" }, { status: 400 });
       }
 
-      const query = { productId };
+      const inventories = await IMSInventory.find({
+        productId,
+      }).lean();
 
-      if (size) {
-        query.size = size;
+      const stockMap = {};
+
+      for (const inventory of inventories) {
+        for (const variant of inventory.variants) {
+          const color = variant.color;
+
+          if (!stockMap[color]) {
+            stockMap[color] = {
+              color,
+              sizes: {},
+              designs: {},
+            };
+          }
+
+          // Product WITHOUT designs
+          if (!variant.designs || variant.designs.length === 0) {
+            for (const size of variant.sizes) {
+              stockMap[color].sizes[size.size] =
+                (stockMap[color].sizes[size.size] || 0) + size.quantity;
+            }
+          }
+
+          // Product WITH designs
+          else {
+            for (const design of variant.designs) {
+              if (!stockMap[color].designs[design.design]) {
+                stockMap[color].designs[design.design] = {};
+              }
+
+              for (const size of design.sizes) {
+                stockMap[color].designs[design.design][size.size] =
+                  (stockMap[color].designs[design.design][size.size] || 0) +
+                  size.quantity;
+              }
+            }
+          }
+        }
       }
-
-      // Aggregate total stock across warehouses
-      const inventory = await IMSInventory.aggregate([
-        { $match: query },
-        {
-          $group: {
-            _id: "$size",
-            quantity: { $sum: "$quantity" },
-          },
-        },
-        {
-          $project: {
-            _id: 0,
-            size: "$_id",
-            quantity: 1,
-          },
-        },
-      ]);
 
       return Response.json({
         productId,
-        inventory,
+        inventory: Object.values(stockMap),
       });
     }
 

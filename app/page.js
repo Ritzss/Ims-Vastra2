@@ -10,6 +10,19 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import {
+  MoreHorizontal,
+  Package,
+  Truck,
+  Bike,
+  CheckCircle2,
+  Wallet,
+  Ban,
+  RotateCcw,
+  IndianRupee,
+  Mail,
+  History,
+} from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
 import {
@@ -40,7 +53,6 @@ import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
 import {
-  Package,
   Warehouse,
   ArrowLeftRight,
   ShoppingCart,
@@ -60,6 +72,14 @@ import { useToast } from "@/hooks/use-toast";
 import { Toaster } from "@/components/ui/sonner";
 import { toast } from "sonner";
 import React from "react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@radix-ui/react-dropdown-menu";
+import { Textarea } from "@/components/ui/textarea";
 
 const API_BASE = "/api/ims";
 
@@ -72,6 +92,20 @@ export default function VastraDrobeIMS() {
   const [sortField, setSortField] = useState(null);
   const [sortOrder, setSortOrder] = useState("asc");
   const [inventorySearch, setInventorySearch] = useState("");
+  const [selectedOrder, setSelectedOrder] = useState(null);
+
+  const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
+  const [returnDialogOpen, setReturnDialogOpen] = useState(false);
+  const [refundDialogOpen, setRefundDialogOpen] = useState(false);
+  const [emailDialogOpen, setEmailDialogOpen] = useState(false);
+  const [notesDialogOpen, setNotesDialogOpen] = useState(false);
+  const [timelineDialogOpen, setTimelineDialogOpen] = useState(false);
+  const [cancelReason, setCancelReason] = useState("");
+  const [cancelNote, setCancelNote] = useState("");
+  const [cancelLoading, setCancelLoading] = useState(false);
+  const [timelineOpen, setTimelineOpen] = useState(false);
+  const [timelineLoading, setTimelineLoading] = useState(false);
+  const [timelineOrder, setTimelineOrder] = useState(null);
 
   // Auth state
   const [email, setEmail] = useState("");
@@ -175,9 +209,12 @@ export default function VastraDrobeIMS() {
   const [showEditInventoryDialog, setShowEditInventoryDialog] = useState(false);
   const [editInventoryForm, setEditInventoryForm] = useState({
     inventoryId: "",
+    color: "",
+    design: "",
+    size: "",
     quantity: 0,
-    reorderLevel: 0,
-    reorderQuantity: 0,
+    reorderLevel: 10,
+    reorderQuantity: 50,
   });
 
   // Add Inventory state
@@ -185,10 +222,13 @@ export default function VastraDrobeIMS() {
   const [addInventoryForm, setAddInventoryForm] = useState({
     productId: "",
     warehouseId: "",
+    color: "",
+    design: "",
     size: "",
     quantity: 0,
     reorderLevel: 10,
     reorderQuantity: 50,
+    reason: "",
   });
 
   // Stock Movements state
@@ -292,6 +332,35 @@ export default function VastraDrobeIMS() {
     localStorage.removeItem("token");
     localStorage.removeItem("user");
     toast.success("Logged out successfully");
+  };
+
+  const openCancelDialog = (order) => {
+    setSelectedOrder(order);
+    setCancelDialogOpen(true);
+  };
+
+  const openReturnDialog = (order) => {
+    setSelectedOrder(order);
+    setReturnDialogOpen(true);
+  };
+
+  const openRefundDialog = (order) => {
+    setSelectedOrder(order);
+    setRefundDialogOpen(true);
+  };
+
+  const openEmailDialog = (order) => {
+    setSelectedOrder(order);
+    setEmailDialogOpen(true);
+  };
+
+  const openNotesDialog = (order) => {
+    setSelectedOrder(order);
+    setNotesDialogOpen(true);
+  };
+
+  const downloadInvoice = (orderId) => {
+    window.open(`/api/orders/${orderId}/invoice`, "_blank");
   };
 
   // Load data functions
@@ -796,23 +865,52 @@ export default function VastraDrobeIMS() {
     }
   };
 
-  const editInventory = (inv) => {
+  const editInventory = (inventory, color, design, sizeData, size) => {
     setEditInventoryForm({
-      inventoryId: inv._id,
-      quantity: inv.quantity,
-      reorderLevel: inv.reorderLevel,
-      reorderQuantity: inv.reorderQuantity,
+      inventoryId: inventory._id,
+
+      color,
+
+      design: design || "",
+
+      size,
+
+      quantity: sizeData.quantity,
+
+      reorderLevel: sizeData.reorderLevel,
+
+      reorderQuantity: sizeData.reorderQuantity,
     });
+
     setShowEditInventoryDialog(true);
   };
 
   const updateInventory = async (e) => {
     e.preventDefault();
+
     try {
-      await apiCall("/inventory/update", "POST", editInventoryForm);
+      await apiCall("/inventory/update", "POST", {
+        inventoryId: editInventoryForm.inventoryId,
+
+        color: editInventoryForm.color,
+
+        design: editInventoryForm.design || null,
+
+        size: editInventoryForm.size,
+
+        quantity: Number(editInventoryForm.quantity),
+
+        reorderLevel: Number(editInventoryForm.reorderLevel),
+
+        reorderQuantity: Number(editInventoryForm.reorderQuantity),
+      });
+
       toast.success("Inventory updated successfully");
+
       setShowEditInventoryDialog(false);
+
       loadInventory();
+
       loadDashboardStats();
     } catch (error) {
       toast.error(error.message);
@@ -821,33 +919,82 @@ export default function VastraDrobeIMS() {
 
   const addInventory = async (e) => {
     e.preventDefault();
+
     try {
       await apiCall("/inventory/add-stock", "POST", {
-        productId: parseInt(addInventoryForm.productId),
+        productId: Number(addInventoryForm.productId),
+
         warehouseId: addInventoryForm.warehouseId,
+
+        color: addInventoryForm.color,
+
+        design: addInventoryForm.design || null,
+
         size: addInventoryForm.size,
-        quantity: parseInt(addInventoryForm.quantity),
-        reorderLevel: parseInt(addInventoryForm.reorderLevel),
-        reorderQuantity: parseInt(addInventoryForm.reorderQuantity),
-        reason: "Direct inventory addition",
+
+        quantity: Number(addInventoryForm.quantity),
+
+        reorderLevel: Number(addInventoryForm.reorderLevel),
+
+        reorderQuantity: Number(addInventoryForm.reorderQuantity),
+
+        reason: addInventoryForm.reason || "Direct inventory addition",
+
         referenceNumber: `INV-${Date.now()}`,
       });
+
       toast.success("Inventory added successfully");
+
       setShowAddInventoryDialog(false);
+
       setAddInventoryForm({
         productId: "",
+
         warehouseId: "",
+
+        color: "",
+
+        design: "",
+
         size: "",
+
         quantity: 0,
+
         reorderLevel: 10,
+
         reorderQuantity: 50,
+
+        reason: "",
       });
+
       loadInventory();
+
       loadDashboardStats();
     } catch (error) {
       toast.error(error.message);
     }
   };
+
+  const selectedProduct = products.find(
+    (p) => p.productId === Number(addInventoryForm.productId),
+  );
+
+  const availableColors = selectedProduct?.variants ?? [];
+
+  const selectedColor = availableColors.find(
+    (v) => v.color === addInventoryForm.color,
+  );
+  const hasDesigns = selectedColor?.designs && selectedColor.designs.length > 0;
+
+  const availableDesigns = hasDesigns ? selectedColor.designs : [];
+
+  const selectedDesign = availableDesigns.find(
+    (design) => design.design === addInventoryForm.design,
+  );
+
+  const availableSizes = hasDesigns
+    ? (selectedDesign?.sizes ?? [])
+    : (selectedColor?.sizes ?? []);
 
   const handleSort = (field) => {
     if (sortField === field) {
@@ -999,6 +1146,86 @@ export default function VastraDrobeIMS() {
       </div>
     );
   }
+
+  const CANCEL_REASONS = [
+    "Out of Stock",
+    "Customer Requested",
+    "Duplicate Order",
+    "Payment Failed",
+    "Address Not Serviceable",
+    "Fraudulent Order",
+    "Damaged Product",
+    "Other",
+  ];
+
+  const cancelOrder = async () => {
+    try {
+      setCancelLoading(true);
+
+      const response = await fetch("/api/ims/orders/cancel", {
+        method: "POST",
+
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+
+        body: JSON.stringify({
+          orderId: selectedOrder.id,
+          reason: cancelReason,
+          note: cancelNote,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error);
+      }
+
+      await loadOrders();
+
+      setCancelDialogOpen(false);
+
+      setCancelReason("");
+
+      setCancelNote("");
+
+      setSelectedOrder(null);
+
+      toast.success("Order cancelled successfully");
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setCancelLoading(false);
+    }
+  };
+
+  const openTimeline = async (order) => {
+    try {
+      setTimelineLoading(true);
+
+      const response = await fetch(`/api/ims/orders/${order.id}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error);
+      }
+
+      setTimelineOrder(data.order);
+
+      setTimelineOpen(true);
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setTimelineLoading(false);
+    }
+  };
 
   // Main application
   return (
@@ -1773,6 +2000,9 @@ export default function VastraDrobeIMS() {
                             setAddInventoryForm({
                               ...addInventoryForm,
                               productId: parseInt(val),
+                              color: "",
+                              design: "",
+                              size: "",
                             })
                           }
                         >
@@ -1816,18 +2046,90 @@ export default function VastraDrobeIMS() {
                         </Select>
                       </div>
                       <div>
-                        <Label>Size</Label>
-                        <Input
-                          placeholder="e.g., S, M, L, 5-6Y"
-                          value={addInventoryForm.size}
-                          onChange={(e) =>
+                        <Label>Color</Label>
+
+                        <Select
+                          value={addInventoryForm.color}
+                          onValueChange={(value) =>
                             setAddInventoryForm({
                               ...addInventoryForm,
-                              size: e.target.value,
+                              color: value,
+                              design: "",
+                              size: "",
                             })
                           }
-                          required
-                        />
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select Color" />
+                          </SelectTrigger>
+
+                          <SelectContent>
+                            {availableColors.map((variant) => (
+                              <SelectItem
+                                key={variant.color}
+                                value={variant.color}
+                              >
+                                {variant.color}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      {hasDesigns && (
+                        <div>
+                          <Label>Design</Label>
+
+                          <Select
+                            value={addInventoryForm.design}
+                            onValueChange={(value) =>
+                              setAddInventoryForm({
+                                ...addInventoryForm,
+                                design: value,
+                                size: "",
+                              })
+                            }
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select Design" />
+                            </SelectTrigger>
+
+                            <SelectContent>
+                              {availableDesigns.map((design) => (
+                                <SelectItem
+                                  key={design.design}
+                                  value={design.design}
+                                >
+                                  {design.design}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      )}
+                      <div>
+                        <Label>Size</Label>
+
+                        <Select
+                          value={addInventoryForm.size}
+                          onValueChange={(value) =>
+                            setAddInventoryForm({
+                              ...addInventoryForm,
+                              size: value,
+                            })
+                          }
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select Size" />
+                          </SelectTrigger>
+
+                          <SelectContent>
+                            {availableSizes.map((size) => (
+                              <SelectItem key={size} value={size}>
+                                {size}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </div>
                       <div>
                         <Label>Initial Quantity</Label>
@@ -1902,12 +2204,20 @@ export default function VastraDrobeIMS() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Product</TableHead>
-                      <TableHead>Variant</TableHead>
-                      <TableHead>SKU</TableHead>
-                      <TableHead>Warehouse</TableHead>
-                      <TableHead>Quantity</TableHead>
-                      <TableHead>Reorder Level</TableHead>
-                      <TableHead>Status</TableHead>
+
+<TableHead>Warehouse</TableHead>
+
+<TableHead>Color</TableHead>
+
+<TableHead>Design</TableHead>
+
+<TableHead>Size</TableHead>
+
+<TableHead>Quantity</TableHead>
+
+<TableHead>Reorder Level</TableHead>
+
+<TableHead>Reorder Qty</TableHead>
                       {(currentUser?.role === "admin" ||
                         currentUser?.role === "inventory_manager") && (
                         <TableHead>Actions</TableHead>
@@ -1915,42 +2225,106 @@ export default function VastraDrobeIMS() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredInventory.map((inv) => (
-                      <TableRow key={inv._id || inv.id}>
-                        <TableCell className="font-medium w-[50%]">
-                          {inv.product?.name || "N/A"}
-                        </TableCell>
-                        <TableCell>{inv.size}</TableCell>
-                        <TableCell>{inv.productId}</TableCell>
-                        <TableCell>
-                          {inv.warehouseId?.name || inv.warehouse?.name}
-                        </TableCell>
-                        <TableCell>{inv.quantity}</TableCell>
-                        <TableCell>{inv.reorderLevel}</TableCell>
-                        <TableCell>
-                          {inv.quantity === 0 ? (
-                            <Badge variant="destructive">Out of Stock</Badge>
-                          ) : inv.quantity <= inv.reorderLevel ? (
-                            <Badge variant="warning" className="bg-yellow-600">
-                              Low Stock
-                            </Badge>
-                          ) : (
-                            <Badge variant="default">In Stock</Badge>
-                          )}
-                        </TableCell>
-                        {(currentUser?.role === "admin" ||
-                          currentUser?.role === "inventory_manager") && (
-                          <TableCell>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => editInventory(inv)}
+                    {filteredInventory.map((inventory) => (
+                      <React.Fragment key={inventory._id}>
+                        {inventory.variants.map((variant) => {
+                          // -------------------------------
+                          // PRODUCT WITH DESIGNS
+                          // -------------------------------
+
+                          if (variant.designs && variant.designs.length > 0) {
+                            return variant.designs.map((design) =>
+                              design.sizes.map((size) => (
+                                <TableRow
+                                  key={`${inventory._id}-${variant.color}-${design.design}-${size.size}`}
+                                >
+                                  <TableCell>{inventory.productId}</TableCell>
+
+                                  <TableCell>
+                                    {inventory.warehouseId?.name}
+                                  </TableCell>
+
+                                  <TableCell>{variant.color}</TableCell>
+
+                                  <TableCell>{design.design}</TableCell>
+
+                                  <TableCell>{size.size}</TableCell>
+
+                                  <TableCell>{size.quantity}</TableCell>
+
+                                  <TableCell>{size.reorderLevel}</TableCell>
+
+                                  <TableCell>{size.reorderQuantity}</TableCell>
+
+                                  <TableCell>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() =>
+                                        editInventory(
+                                          inventory,
+                                          variant.color,
+                                          design.design,
+                                          size,
+                                          size.size,
+                                        )
+                                      }
+                                    >
+                                      Edit
+                                    </Button>
+                                  </TableCell>
+                                </TableRow>
+                              )),
+                            );
+                          }
+
+                          // -------------------------------
+                          // PRODUCT WITHOUT DESIGNS
+                          // -------------------------------
+
+                          return variant.sizes.map((size) => (
+                            <TableRow
+                              key={`${inventory._id}-${variant.color}-${size.size}`}
                             >
-                              <Pencil className="w-4 h-4" />
-                            </Button>
-                          </TableCell>
-                        )}
-                      </TableRow>
+                              <TableCell>{inventory.productId}</TableCell>
+
+                              <TableCell>
+                                {inventory.warehouseId?.name}
+                              </TableCell>
+
+                              <TableCell>{variant.color}</TableCell>
+
+                              <TableCell>-</TableCell>
+
+                              <TableCell>{size.size}</TableCell>
+
+                              <TableCell>{size.quantity}</TableCell>
+
+                              <TableCell>{size.reorderLevel}</TableCell>
+
+                              <TableCell>{size.reorderQuantity}</TableCell>
+
+                              <TableCell>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() =>
+                                    editInventory(
+                                      inventory,
+                                      variant.color,
+                                      null,
+                                      size,
+                                      size.size,
+                                    )
+                                  }
+                                >
+                                  Edit
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          ));
+                        })}
+                      </React.Fragment>
                     ))}
                   </TableBody>
                 </Table>
@@ -2376,73 +2750,182 @@ export default function VastraDrobeIMS() {
                           {new Date(order.createdAt).toLocaleString()}
                         </TableCell>
 
-                        <TableCell className="space-x-2">
-                          {/* Pending */}
-                          {order.status === "pending" && (
-                            <Button
-                              size="sm"
-                              onClick={() =>
-                                updateOrderStatus(order.id, "packing")
-                              }
-                            >
-                              Mark Packing
-                            </Button>
-                          )}
-
-                          {/* Packing */}
-                          {order.status === "packing" && (
-                            <Button
-                              size="sm"
-                              onClick={() =>
-                                updateOrderStatus(order.id, "shipping")
-                              }
-                            >
-                              Mark Shipped
-                            </Button>
-                          )}
-
-                          {/* Shipping */}
-                          {order.status === "shipping" && (
-                            <Button
-                              size="sm"
-                              onClick={() =>
-                                updateOrderStatus(order.id, "out_for_delivery")
-                              }
-                            >
-                              Out for Delivery
-                            </Button>
-                          )}
-
-                          {/* Out For Delivery */}
-                          {order.status === "out_for_delivery" && (
-                            <Button
-                              size="sm"
-                              onClick={() =>
-                                updateOrderStatus(order.id, "delivered")
-                              }
-                            >
-                              Mark Delivered
-                            </Button>
-                          )}
-
-                          {/* COD - Collect payment after delivery */}
-                          {order.status === "delivered" &&
-                            order.paymentMethod === "COD" && (
+                        <TableCell className="text-right">
+                          <DropdownMenu modal={false}>
+                            <DropdownMenuTrigger asChild>
                               <Button
-                                size="sm"
-                                onClick={() =>
-                                  updateOrderStatus(order.id, "paid")
-                                }
+                                variant="ghost"
+                                size="icon"
+                                className="h-9 w-9 rounded-full hover:bg-muted data-[state=open]:bg-muted"
                               >
-                                Mark Paid
+                                <MoreHorizontal className="h-5 w-5" />
                               </Button>
-                            )}
+                            </DropdownMenuTrigger>
 
-                          {/* Online Orders */}
-                          {order.status === "paid" &&
-                            order.paymentMethod !== "COD" && (
-                              <Badge className="bg-green-600">Completed</Badge>
-                            )}
+                            <DropdownMenuContent
+                              align="end"
+                              side="bottom"
+                              sideOffset={8}
+                              collisionPadding={16}
+                              className="w-72 rounded-xl border bg-background p-2 shadow-2xl"
+                            >
+                              <p className="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                                Order Actions
+                              </p>
+
+                              {/* Mark as Packing */}
+
+                              {((order.paymentMethod === "COD" &&
+                                order.status === "pending") ||
+                                (order.paymentMethod !== "COD" &&
+                                  order.paymentStatus === "Paid" &&
+                                  ["pending", "paid"].includes(
+                                    order.status,
+                                  ))) && (
+                                <DropdownMenuItem
+                                  onClick={() =>
+                                    updateOrderStatus(order.id, "packing")
+                                  }
+                                  className="gap-3 rounded-lg"
+                                >
+                                  <Package className="h-4 w-4 text-orange-500" />
+                                  <span>Mark as Packing</span>
+                                </DropdownMenuItem>
+                              )}
+
+                              {/* Mark as Shipped */}
+
+                              {order.status === "packing" && (
+                                <DropdownMenuItem
+                                  onClick={() =>
+                                    updateOrderStatus(order.id, "shipping")
+                                  }
+                                  className="gap-3 rounded-lg"
+                                >
+                                  <Truck className="h-4 w-4 text-blue-500" />
+                                  <span>Mark as Shipped</span>
+                                </DropdownMenuItem>
+                              )}
+
+                              {/* Out for Delivery */}
+
+                              {order.status === "shipping" && (
+                                <DropdownMenuItem
+                                  onClick={() =>
+                                    updateOrderStatus(
+                                      order.id,
+                                      "out_for_delivery",
+                                    )
+                                  }
+                                  className="gap-3 rounded-lg"
+                                >
+                                  <Bike className="h-4 w-4 text-violet-500" />
+                                  <span>Out for Delivery</span>
+                                </DropdownMenuItem>
+                              )}
+
+                              {/* Delivered */}
+
+                              {order.status === "out_for_delivery" && (
+                                <DropdownMenuItem
+                                  onClick={() =>
+                                    updateOrderStatus(order.id, "delivered")
+                                  }
+                                  className="gap-3 rounded-lg"
+                                >
+                                  <CheckCircle2 className="h-4 w-4 text-green-600" />
+                                  <span>Mark Delivered</span>
+                                </DropdownMenuItem>
+                              )}
+
+                              {/* COD Payment Collection */}
+
+                              {order.paymentMethod === "COD" &&
+                                order.status === "delivered" &&
+                                order.paymentStatus === "Pending" && (
+                                  <DropdownMenuItem
+                                    onClick={() =>
+                                      updateOrderStatus(order.id, "paid")
+                                    }
+                                    className="gap-3 rounded-lg"
+                                  >
+                                    <Wallet className="h-4 w-4 text-emerald-600" />
+                                    <span>Mark Payment Received</span>
+                                  </DropdownMenuItem>
+                                )}
+
+                              <DropdownMenuSeparator />
+
+                              <p className="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                                Customer Service
+                              </p>
+
+                              {/* Cancel */}
+
+                              {![
+                                "cancelled",
+                                "returned",
+                                "refunded",
+                                "delivered",
+                              ].includes(order.status) && (
+                                <DropdownMenuItem
+                                  onClick={() => openCancelDialog(order)}
+                                  className="gap-3 rounded-lg text-red-600 focus:text-red-600"
+                                >
+                                  <Ban className="h-4 w-4" />
+                                  <span>Cancel Order</span>
+                                </DropdownMenuItem>
+                              )}
+
+                              {/* Return */}
+
+                              {order.status === "delivered" && (
+                                <DropdownMenuItem
+                                  onClick={() => openReturnDialog(order)}
+                                  className="gap-3 rounded-lg"
+                                >
+                                  <RotateCcw className="h-4 w-4 text-amber-500" />
+                                  <span>Process Return</span>
+                                </DropdownMenuItem>
+                              )}
+
+                              {/* Refund */}
+
+                              {["cancelled", "returned"].includes(
+                                order.status,
+                              ) && (
+                                <DropdownMenuItem
+                                  onClick={() => openRefundDialog(order)}
+                                  className="gap-3 rounded-lg"
+                                >
+                                  <IndianRupee className="h-4 w-4 text-green-600" />
+                                  <span>Initiate Refund</span>
+                                </DropdownMenuItem>
+                              )}
+
+                              <DropdownMenuSeparator />
+
+                              <p className="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                                Communication
+                              </p>
+
+                              <DropdownMenuItem
+                                onClick={() => openEmailDialog(order)}
+                                className="gap-3 rounded-lg"
+                              >
+                                <Mail className="h-4 w-4 text-sky-500" />
+                                <span>Send Email</span>
+                              </DropdownMenuItem>
+
+                              <DropdownMenuItem
+                                onClick={() => openTimeline(order)}
+                                className="gap-3 rounded-lg"
+                              >
+                                <History className="h-4 w-4 text-slate-500" />
+                                <span>View Timeline</span>
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </TableCell>
                       </TableRow>
                     ))}
@@ -2450,6 +2933,104 @@ export default function VastraDrobeIMS() {
                 </Table>
               </CardContent>
             </Card>
+            <Dialog open={cancelDialogOpen} onOpenChange={setCancelDialogOpen}>
+              <DialogContent className="sm:max-w-lg">
+                <DialogHeader>
+                  <DialogTitle>Cancel Order</DialogTitle>
+                </DialogHeader>
+
+                <div className="space-y-4">
+                  <div>
+                    <Label>Reason</Label>
+
+                    <Select
+                      value={cancelReason}
+                      onValueChange={setCancelReason}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select reason" />
+                      </SelectTrigger>
+
+                      <SelectContent>
+                        {CANCEL_REASONS.map((reason) => (
+                          <SelectItem key={reason} value={reason}>
+                            {reason}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <Label>Additional Notes</Label>
+
+                    <Textarea
+                      rows={5}
+                      value={cancelNote}
+                      onChange={(e) => setCancelNote(e.target.value)}
+                      placeholder="Optional notes for customer..."
+                    />
+                  </div>
+                </div>
+
+                <DialogFooter>
+                  <Button
+                    variant="outline"
+                    onClick={() => setCancelDialogOpen(false)}
+                  >
+                    Close
+                  </Button>
+
+                  <Button
+                    variant="destructive"
+                    disabled={!cancelReason || cancelLoading}
+                    onClick={cancelOrder}
+                  >
+                    {cancelLoading ? "Cancelling..." : "Cancel Order"}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+            <Dialog open={timelineOpen} onOpenChange={setTimelineOpen}>
+              <DialogContent className="max-w-2xl">
+                <DialogHeader>
+                  <DialogTitle>Order Timeline</DialogTitle>
+                </DialogHeader>
+
+                {timelineLoading ? (
+                  <div className="py-10 text-center">Loading...</div>
+                ) : (
+                  <div className="space-y-5 max-h-[500px] overflow-y-auto">
+                    {timelineOrder?.history?.length ? (
+                      timelineOrder.history
+                        .slice()
+                        .reverse()
+                        .map((event, index) => (
+                          <div key={index} className="border rounded-lg p-4">
+                            <div className="flex justify-between">
+                              <div>
+                                <div className="font-semibold">
+                                  {event.action}
+                                </div>
+
+                                <div className="text-sm text-muted-foreground">
+                                  {event.description}
+                                </div>
+                              </div>
+
+                              <div className="text-xs text-muted-foreground">
+                                {new Date(event.createdAt).toLocaleString()}
+                              </div>
+                            </div>
+                          </div>
+                        ))
+                    ) : (
+                      <p>No timeline available.</p>
+                    )}
+                  </div>
+                )}
+              </DialogContent>
+            </Dialog>
           </TabsContent>
 
           {/* Warehouses Tab */}

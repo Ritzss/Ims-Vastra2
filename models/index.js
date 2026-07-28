@@ -96,15 +96,15 @@ const ProductSchema = new mongoose.Schema(
   { timestamps: true },
 );
 
-// Orders Schema (Existing - Read-only)
-
 const OrderSchema = new mongoose.Schema(
   {
+    // Customer
     userId: {
-      type: mongoose.Schema.Types.ObjectId,
+      type: Schema.Types.ObjectId,
       ref: "User",
       required: true,
     },
+
     // Order Identifiers
     orderNumber: {
       type: String,
@@ -164,7 +164,7 @@ const OrderSchema = new mongoose.Schema(
       },
     ],
 
-    // Delivery Details
+    // Delivery Address
     deliveryAddress: {
       name: String,
 
@@ -231,6 +231,14 @@ const OrderSchema = new mongoose.Schema(
       default: "Pending",
     },
 
+    payment: {
+      provider: String,
+      orderId: String,
+      paymentId: String,
+      signature: String,
+    },
+
+    // Order Status
     status: {
       type: String,
       enum: [
@@ -241,19 +249,167 @@ const OrderSchema = new mongoose.Schema(
         "out_for_delivery",
         "delivered",
         "cancelled",
+        "return_requested",
+        "return_approved",
+        "return_rejected",
         "returned",
+        "refund_initiated",
         "refunded",
       ],
       default: "pending",
     },
 
-    payment: {
-      provider: String,
-      orderId: String,
-      paymentId: String,
-      signature: String,
+    // Cancellation
+    cancelDetails: {
+      isCancelled: {
+        type: Boolean,
+        default: false,
+      },
+
+      reason: String,
+
+      customReason: String,
+
+      cancelledBy: {
+        type: Schema.Types.ObjectId,
+        ref: "IMSAdminUser",
+      },
+
+      cancelledAt: Date,
     },
 
+    // Return
+    returnDetails: {
+      requested: {
+        type: Boolean,
+        default: false,
+      },
+
+      approved: {
+        type: Boolean,
+        default: false,
+      },
+
+      rejected: {
+        type: Boolean,
+        default: false,
+      },
+
+      reason: String,
+
+      rejectionReason: String,
+
+      requestedAt: Date,
+
+      approvedAt: Date,
+
+      receivedAt: Date,
+
+      approvedBy: {
+        type: Schema.Types.ObjectId,
+        ref: "IMSAdminUser",
+      },
+    },
+
+    // Refund
+    refund: {
+      status: {
+        type: String,
+        enum: ["none", "pending", "initiated", "completed", "failed"],
+        default: "none",
+      },
+
+      amount: Number,
+
+      transactionId: String,
+
+      reason: String,
+
+      refundedBy: {
+        type: Schema.Types.ObjectId,
+        ref: "IMSAdminUser",
+      },
+
+      refundedAt: Date,
+    },
+
+    // Admin Notes
+    adminNotes: [
+      {
+        note: {
+          type: String,
+          required: true,
+        },
+
+        addedBy: {
+          type: Schema.Types.ObjectId,
+          ref: "IMSAdminUser",
+        },
+
+        createdAt: {
+          type: Date,
+          default: Date.now,
+        },
+      },
+    ],
+
+    // Order Timeline
+    history: [
+      {
+        action: String,
+
+        status: String,
+
+        description: String,
+
+        performedBy: {
+          type: Schema.Types.ObjectId,
+          ref: "IMSAdminUser",
+        },
+
+        createdAt: {
+          type: Date,
+          default: Date.now,
+        },
+      },
+    ],
+
+    // Email Log
+    emails: [
+      {
+        type: String,
+
+        subject: String,
+
+        recipient: String,
+
+        status: {
+          type: String,
+          enum: ["success", "failed"],
+        },
+
+        sentAt: {
+          type: Date,
+          default: Date.now,
+        },
+      },
+    ],
+
+    // Attachments (Return Images, Proof, etc.)
+    attachments: [
+      {
+        type: String,
+
+        url: String,
+
+        uploadedAt: {
+          type: Date,
+          default: Date.now,
+        },
+      },
+    ],
+
+    // Invoice
     invoiceUrl: String,
   },
   {
@@ -411,52 +567,225 @@ const IMSWarehouseSchema = new mongoose.Schema(
 // IMS Inventory (Warehouse-wise, Size-wise stock)
 const IMSInventorySchema = new mongoose.Schema(
   {
-    productId: { type: Number, required: true, ref: "Product" },
+    productId: {
+      type: Number,
+      required: true,
+      ref: "Product",
+    },
+
     warehouseId: {
       type: mongoose.Schema.Types.ObjectId,
-      required: true,
       ref: "IMSWarehouse",
+      required: true,
     },
-    size: { type: String, required: true }, // Must match product.sizes
-    quantity: { type: Number, required: true, default: 0, min: 0 },
-    reorderLevel: { type: Number, default: 10 },
-    reorderQuantity: { type: Number, default: 50 },
-    lastUpdated: { type: Date, default: Date.now },
-    updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: "IMSAdminUser" },
+
+    variants: [
+      {
+        color: {
+          type: String,
+          required: true,
+          trim: true,
+        },
+
+        // Products WITHOUT designs
+        sizes: [
+          {
+            size: {
+              type: String,
+              required: true,
+            },
+
+            quantity: {
+              type: Number,
+              default: 0,
+            },
+
+            reorderLevel: {
+              type: Number,
+              default: 10,
+            },
+
+            reorderQuantity: {
+              type: Number,
+              default: 50,
+            },
+          },
+        ],
+
+        // Products WITH designs
+        designs: [
+          {
+            design: {
+              type: String,
+              required: true,
+            },
+
+            sizes: [
+              {
+                size: {
+                  type: String,
+                  required: true,
+                },
+
+                quantity: {
+                  type: Number,
+                  default: 0,
+                },
+
+                reorderLevel: {
+                  type: Number,
+                  default: 10,
+                },
+
+                reorderQuantity: {
+                  type: Number,
+                  default: 50,
+                },
+              },
+            ],
+          },
+        ],
+      },
+    ],
+
+    totalQuantity: {
+      type: Number,
+      default: 0,
+    },
+
+    lastUpdated: {
+      type: Date,
+      default: Date.now,
+    },
+
+    updatedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "IMSAdminUser",
+    },
   },
-  { timestamps: true },
+  {
+    timestamps: true,
+  },
 );
 
-// Compound index for unique inventory per product-warehouse-size
 IMSInventorySchema.index(
-  { productId: 1, warehouseId: 1, size: 1 },
-  { unique: true },
+  {
+    productId: 1,
+    warehouseId: 1,
+  },
+  {
+    unique: true,
+  },
 );
 
 // IMS Stock Movements (Audit trail)
-const IMSStockMovementSchema = new mongoose.Schema({
-  productId: { type: Number, required: true },
-  size: { type: String, required: true },
-  fromWarehouseId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "IMSWarehouse",
+const IMSStockMovementSchema = new mongoose.Schema(
+  {
+    // Product
+    productId: {
+      type: Number,
+      required: true,
+      ref: "Product",
+    },
+
+    color: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+
+    size: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+
+    // Warehouse
+    fromWarehouseId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "IMSWarehouse",
+      default: null,
+    },
+
+    toWarehouseId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "IMSWarehouse",
+      default: null,
+    },
+
+    // Stock Change
+    quantity: {
+      type: Number,
+      required: true,
+      min: 1,
+    },
+
+    previousQuantity: {
+      type: Number,
+      default: 0,
+    },
+
+    newQuantity: {
+      type: Number,
+      default: 0,
+    },
+
+    // Movement Type
+    type: {
+      type: String,
+      enum: [
+        "in",
+        "out",
+        "transfer",
+        "sale",
+        "return",
+        "damaged",
+        "adjustment",
+      ],
+      required: true,
+    },
+
+    reason: {
+      type: String,
+      trim: true,
+    },
+
+    referenceNumber: {
+      type: String,
+      trim: true,
+    },
+
+    notes: {
+      type: String,
+      trim: true,
+    },
+
+    // Audit
+    performedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "IMSAdminUser",
+      required: true,
+    },
   },
-  toWarehouseId: { type: mongoose.Schema.Types.ObjectId, ref: "IMSWarehouse" },
-  quantity: { type: Number, required: true },
-  type: {
-    type: String,
-    enum: ["in", "out", "transfer", "sale", "return", "damaged", "adjustment"],
-    required: true,
+  {
+    timestamps: true,
   },
-  reason: String,
-  referenceNumber: String, // PO number, order ID, etc.
-  notes: String,
-  performedBy: {
-    type: mongoose.Schema.Types.ObjectId,
-    required: true,
-    ref: "IMSAdminUser",
-  },
-  createdAt: { type: Date, default: Date.now },
+);
+
+// Useful indexes
+IMSStockMovementSchema.index({
+  productId: 1,
+  color: 1,
+  size: 1,
+});
+
+IMSStockMovementSchema.index({
+  type: 1,
+  createdAt: -1,
+});
+
+IMSStockMovementSchema.index({
+  referenceNumber: 1,
 });
 
 // IMS Activity Logs

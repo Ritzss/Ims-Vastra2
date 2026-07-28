@@ -1,27 +1,60 @@
 import mongoose from "mongoose";
 import { IMSInventory, IMSStockMovement, Product } from "../models/index.js";
-import { ensureSufficientStock } from "./validateStock.js";
-import { runTransaction } from "@/lib/runTransaction.js";
+import {
+  getProductVariant,
+  hasDesign,
+  getInventoryVariant,
+  getDesign,
+  getSize,
+  calculateTotalQuantity,
+  validateStock,
+} from "@/lib/inventoryHelpers";
 
 /**
  * Inventory Service with Transaction Support
  * Prevents overselling and ensures data consistency
  */
 
-// Get inventory for a product-size-warehouse
-export async function getInventory(productId, warehouseId, size) {
-  return await IMSInventory.findOne({ productId, warehouseId, size });
+// Get all inventory for a product across warehouses
+export async function getInventory(productId, warehouseId) {
+  return IMSInventory.findOne({
+    productId,
+    warehouseId,
+  });
 }
 
-// Get all inventory for a product across warehouses
 export async function getProductInventory(productId) {
-  return await IMSInventory.find({ productId }).populate("warehouseId").lean();
+  return IMSInventory.find({
+    productId,
+  })
+    .populate("warehouseId")
+    .lean();
 }
+
+export function findVariant(inventory, color) {
+  return inventory.variants.find(
+    (v) => v.color.toLowerCase() === color.toLowerCase(),
+  );
+}
+
+export function findDesign(variant, design) {
+  return variant.designs.find(
+    (d) => d.design.toLowerCase() === design.toLowerCase(),
+  );
+}
+
+export function findSize(parent, size) {
+  return parent.sizes.find((s) => s.size.toLowerCase() === size.toLowerCase());
+}
+
+//
 
 // Add stock (IN operation)
 export async function addStock(
   productId,
   warehouseId,
+  color,
+  design,
   size,
   quantity,
   userId,
@@ -32,55 +65,83 @@ export async function addStock(
   session.startTransaction();
 
   try {
-    // Update or create inventory record
-    const inventory = await IMSInventory.findOneAndUpdate(
-      { productId, warehouseId, size },
-      {
-        $inc: { quantity: quantity },
-        $set: { lastUpdated: new Date(), updatedBy: userId },
-      },
-      {
-        upsert: true,
-        new: true,
-        session,
-        setDefaultsOnInsert: true,
-      },
+    const node = await getInventoryNode(
+      session,
+      productId,
+      warehouseId,
+      color,
+      design,
+      size,
+      true,
     );
 
-    // Record stock movement
+    const previousQuantity = node.sizeNode.quantity;
+
+    node.sizeNode.quantity += quantity;
+
+    node.inventory.totalQuantity = calculateTotalQuantity(node.inventory);
+
+    node.inventory.updatedBy = userId;
+
+    node.inventory.lastUpdated = new Date();
+
+    node.inventory.markModified("variants");
+
+    await node.inventory.save({
+      session,
+    });
+
     await IMSStockMovement.create(
       [
         {
           productId,
+
+          color,
+
+          design: node.hasDesigns ? design : null,
+
           size,
+
           toWarehouseId: warehouseId,
+
           quantity,
+
+          previousQuantity,
+
+          newQuantity: node.sizeNode.quantity,
+
           type: "in",
+
           reason,
+
           referenceNumber,
+
           performedBy: userId,
         },
       ],
-      { session },
+      {
+        session,
+      },
     );
 
-    // Update denormalized stock in product (optional)
     await updateProductTotalStock(productId, session);
 
     await session.commitTransaction();
-    return inventory;
-  } catch (error) {
+
+    return node.inventory;
+  } catch (err) {
     await session.abortTransaction();
-    throw error;
+    throw err;
   } finally {
     session.endSession();
   }
 }
 
-// Remove stock (OUT operation) - with overselling prevention
 export async function removeStock(
   productId,
   warehouseId,
+  color,
+  design,
   size,
   quantity,
   userId,
@@ -91,46 +152,73 @@ export async function removeStock(
   session.startTransaction();
 
   try {
-    // ✅ Centralized validation
-    const inventory = await ensureSufficientStock(
+    const node = await getInventoryNode(
+      session,
       productId,
       warehouseId,
+      color,
+      design,
       size,
-      quantity,
-      session,
+      false,
     );
 
-    // Deduct stock
-    inventory.quantity -= quantity;
-    inventory.lastUpdated = new Date();
-    inventory.updatedBy = userId;
-    await inventory.save({ session });
+    validateStock(node.sizeNode, quantity);
 
-    // Record stock movement
+    const previousQuantity = node.sizeNode.quantity;
+
+    node.sizeNode.quantity -= quantity;
+
+    node.inventory.totalQuantity = calculateTotalQuantity(node.inventory);
+
+    node.inventory.lastUpdated = new Date();
+
+    node.inventory.updatedBy = userId;
+
+    await node.inventory.save({
+      session,
+    });
+
     await IMSStockMovement.create(
       [
         {
           productId,
+
+          color,
+
+          design: node.hasDesigns ? design : null,
+
           size,
+
           fromWarehouseId: warehouseId,
+
           quantity,
+
+          previousQuantity,
+
+          newQuantity: node.sizeNode.quantity,
+
           type: "out",
+
           reason,
+
           referenceNumber,
+
           performedBy: userId,
         },
       ],
-      { session },
+      {
+        session,
+      },
     );
 
-    // Update denormalized product stock
     await updateProductTotalStock(productId, session);
 
     await session.commitTransaction();
-    return inventory;
-  } catch (error) {
+
+    return node.inventory;
+  } catch (err) {
     await session.abortTransaction();
-    throw error;
+    throw err;
   } finally {
     session.endSession();
   }
@@ -140,79 +228,130 @@ export async function transferStock(
   productId,
   fromWarehouseId,
   toWarehouseId,
+  color,
+  design,
   size,
   quantity,
   userId,
   reason = "",
   referenceNumber = "",
 ) {
-  return runTransaction(async (session) => {
-    // 1️⃣ Validate source stock
-    await ensureSufficientStock(
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    // Source Warehouse
+    const source = await getInventoryNode(
+      session,
       productId,
       fromWarehouseId,
+      color,
+      design,
       size,
-      quantity,
+      false,
+    );
+
+    // Destination Warehouse
+    const destination = await getInventoryNode(
       session,
+      productId,
+      toWarehouseId,
+      color,
+      design,
+      size,
+      true,
     );
 
-    // 2️⃣ Deduct from source
-    await IMSInventory.findOneAndUpdate(
-      { productId, warehouseId: fromWarehouseId, size },
-      {
-        $inc: { quantity: -quantity },
-        $set: { lastUpdated: new Date(), updatedBy: userId },
-      },
-      { session },
+    // Validate stock
+    validateStock(source.sizeNode, quantity);
+
+    const sourcePrevious = source.sizeNode.quantity;
+    const destinationPrevious = destination.sizeNode.quantity;
+
+    // Transfer
+    source.sizeNode.quantity -= quantity;
+    destination.sizeNode.quantity += quantity;
+
+    source.inventory.totalQuantity = calculateTotalQuantity(source.inventory);
+
+    destination.inventory.totalQuantity = calculateTotalQuantity(
+      destination.inventory,
     );
 
-    // 3️⃣ Add to destination
-    await IMSInventory.findOneAndUpdate(
-      { productId, warehouseId: toWarehouseId, size },
-      {
-        $inc: { quantity },
-        $set: { lastUpdated: new Date(), updatedBy: userId },
-      },
-      { upsert: true, session, setDefaultsOnInsert: true },
-    );
+    source.inventory.updatedBy = userId;
+    destination.inventory.updatedBy = userId;
 
-    // 4️⃣ Audit log
+    source.inventory.lastUpdated = new Date();
+    destination.inventory.lastUpdated = new Date();
+
+    await source.inventory.save({ session });
+    await destination.inventory.save({ session });
+
     await IMSStockMovement.create(
       [
         {
           productId,
+
+          color,
+
+          design: source.hasDesigns ? design : null,
+
           size,
+
           fromWarehouseId,
           toWarehouseId,
+
           quantity,
+
+          previousQuantity: sourcePrevious,
+          newQuantity: source.sizeNode.quantity,
+
           type: "transfer",
+
           reason,
           referenceNumber,
+
           performedBy: userId,
         },
       ],
-      { session },
+      {
+        session,
+      },
     );
 
-    // 5️⃣ Update product stock
     await updateProductTotalStock(productId, session);
 
-    return { success: true };
-  });
+    await session.commitTransaction();
+
+    return {
+      success: true,
+      sourceInventory: source.inventory,
+      destinationInventory: destination.inventory,
+    };
+  } catch (err) {
+    await session.abortTransaction();
+    throw err;
+  } finally {
+    session.endSession();
+  }
 }
 
 // Record sale (deducts stock and logs as sale)
 export async function recordSale(
   productId,
   warehouseId,
+  color,
+  design,
   size,
   quantity,
   userId,
   orderNumber,
 ) {
-  return await removeStock(
+  return removeStock(
     productId,
     warehouseId,
+    color,
+    design,
     size,
     quantity,
     userId,
@@ -225,79 +364,78 @@ export async function recordSale(
 export async function recordReturn(
   productId,
   warehouseId,
+  color,
+  design,
   size,
   quantity,
   userId,
   orderNumber,
 ) {
-  const session = await mongoose.startSession();
-  session.startTransaction();
-
-  try {
-    // Add stock back
-    const inventory = await IMSInventory.findOneAndUpdate(
-      { productId, warehouseId, size },
-      {
-        $inc: { quantity: quantity },
-        $set: { lastUpdated: new Date(), updatedBy: userId },
-      },
-      {
-        upsert: true,
-        new: true,
-        session,
-        setDefaultsOnInsert: true,
-      },
-    );
-
-    // Record stock movement
-    await IMSStockMovement.create(
-      [
-        {
-          productId,
-          size,
-          toWarehouseId: warehouseId,
-          quantity,
-          type: "return",
-          reason: "Customer return",
-          referenceNumber: orderNumber,
-          performedBy: userId,
-        },
-      ],
-      { session },
-    );
-
-    // Update denormalized stock in product
-    await updateProductTotalStock(productId, session);
-
-    await session.commitTransaction();
-    return inventory;
-  } catch (error) {
-    await session.abortTransaction();
-    throw error;
-  } finally {
-    session.endSession();
-  }
+  return addStock(
+    productId,
+    warehouseId,
+    color,
+    design,
+    size,
+    quantity,
+    userId,
+    "Customer Return",
+    orderNumber,
+  );
 }
 
 // Update denormalized total stock in products collection
 async function updateProductTotalStock(productId, session = null) {
-  const inventories = await IMSInventory.find({ productId }).session(session);
-  const totalStock = inventories.reduce((sum, inv) => sum + inv.quantity, 0);
+  const inventories = await IMSInventory.find({
+    productId,
+  }).session(session);
+
+  let total = 0;
+
+  for (const inventory of inventories) {
+    total += calculateTotalQuantity(inventory);
+  }
 
   await Product.updateOne(
-    { productId },
-    { $set: { stock: totalStock } },
-    { session },
+    {
+      productId,
+    },
+    {
+      $set: {
+        stock: total,
+      },
+    },
+    {
+      session,
+    },
   );
 }
 
 // Get low stock items
 export async function getLowStockItems() {
-  return await IMSInventory.find({
-    $expr: { $lte: ["$quantity", "$reorderLevel"] },
-  })
-    .populate("warehouseId")
-    .lean();
+  const inventories = await IMSInventory.find().populate("warehouseId").lean();
+
+  const lowStock = [];
+
+  for (const inventory of inventories) {
+    for (const variant of inventory.variants) {
+      for (const size of variant.sizes) {
+        if (size.quantity <= size.reorderLevel) {
+          lowStock.push({
+            productId: inventory.productId,
+            warehouse: inventory.warehouseId,
+            color: variant.color,
+            size: size.size,
+            quantity: size.quantity,
+            reorderLevel: size.reorderLevel,
+            reorderQuantity: size.reorderQuantity,
+          });
+        }
+      }
+    }
+  }
+
+  return lowStock;
 }
 
 // Get stock movements with filters
@@ -305,13 +443,17 @@ export async function getStockMovements(filters = {}, limit = 50) {
   const query = {};
 
   if (filters.productId) query.productId = filters.productId;
+  if (filters.color) query.color = filters.color;
+  if (filters.size) query.size = filters.size;
   if (filters.type) query.type = filters.type;
+
   if (filters.warehouseId) {
     query.$or = [
       { fromWarehouseId: filters.warehouseId },
       { toWarehouseId: filters.warehouseId },
     ];
   }
+
   if (filters.startDate && filters.endDate) {
     query.createdAt = {
       $gte: new Date(filters.startDate),
@@ -326,4 +468,68 @@ export async function getStockMovements(filters = {}, limit = 50) {
     .sort({ createdAt: -1 })
     .limit(limit)
     .lean();
+}
+
+async function getInventoryNode(
+  session,
+  productId,
+  warehouseId,
+  color,
+  design,
+  size,
+  createIfMissing = false,
+) {
+  const product = await Product.findOne({
+    productId,
+  }).session(session);
+
+  if (!product) {
+    throw new Error("Product not found.");
+  }
+
+  let inventory = await IMSInventory.findOne({
+    productId,
+    warehouseId,
+  }).session(session);
+
+  if (!inventory) {
+    if (!createIfMissing) {
+      throw new Error("Inventory not found.");
+    }
+
+    inventory = new IMSInventory({
+      productId,
+      warehouseId,
+      variants: [],
+    });
+  }
+
+  const productVariant = getProductVariant(product, color);
+
+  if (!productVariant) {
+    throw new Error("Color not found.");
+  }
+
+  const variant = getInventoryVariant(inventory, color);
+
+  let sizeNode;
+  let designNode = null;
+
+  if (hasDesign(productVariant)) {
+    designNode = getDesign(variant, design);
+
+    sizeNode = getSize(designNode, size);
+  } else {
+    sizeNode = getSize(variant, size);
+  }
+
+  return {
+    inventory,
+    product,
+    productVariant,
+    variant,
+    designNode,
+    sizeNode,
+    hasDesigns: hasDesign(productVariant),
+  };
 }
