@@ -973,8 +973,7 @@ export async function POST(request, { params }) {
                   : null;
 
             if (!size) {
-              console.warn("Order item missing size:", item);
-              continue;
+              throw new Error(`Missing size for product ${productId}`);
             }
 
             let warehouse = item.warehouseId;
@@ -990,46 +989,16 @@ export async function POST(request, { params }) {
               warehouse = warehouseDoc._id;
             }
 
-            const inventory = await IMSInventory.findOne(
-              { productId, warehouseId: warehouse, size },
-              null,
-              { session },
-            );
-
-            if (!inventory) {
-              throw new Error(
-                `Inventory not found for product ${productId}, size ${size}, warehouse ${warehouse}`,
-              );
-            }
-
-            if (inventory.quantity < quantity) {
-              throw new Error(
-                `Insufficient stock for product ${productId}. Available: ${inventory.quantity}`,
-              );
-            }
-
-            await IMSInventory.updateOne(
-              { _id: inventory._id },
-              {
-                $inc: { quantity: -quantity },
-                $set: { updatedBy: user.id, lastUpdated: new Date() },
-              },
-              { session },
-            );
-
-            await IMSStockMovement.create(
-              [
-                {
-                  productId,
-                  size,
-                  quantity,
-                  type: "sale",
-                  fromWarehouseId: warehouse,
-                  performedBy: user.id,
-                  referenceNumber: order._id.toString(),
-                },
-              ],
-              { session },
+            // ✅ Uses new nested inventory structure
+            await recordSale(
+              productId,
+              warehouse,
+              item.color,
+              item.design || "",
+              size,
+              quantity,
+              user.id,
+              order.orderNumber,
             );
           }
         });
