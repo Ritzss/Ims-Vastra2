@@ -2,11 +2,11 @@
 const nextConfig = {
   // output: "standalone",
 
-  serverExternalPackages: [
-    "@sparticuz/chromium",
-    "puppeteer-core",
-    "mongodb",
-  ],
+  serverExternalPackages: ["mongodb", "puppeteer-core", "@sparticuz/chromium"],
+
+  outputFileTracingIncludes: {
+    "/api/ims/[...path]": ["./node_modules/@sparticuz/chromium/**/*"],
+  },
 
   images: {
     remotePatterns: [

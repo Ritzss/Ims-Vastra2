@@ -6,6 +6,7 @@
  */
 export const runtime = "nodejs";
 export const maxDuration = 60;
+export const dynamic = "force-dynamic";
 
 import { connectDB } from "@/lib/db";
 import { verifyToken, checkRole, generateToken } from "@/lib/auth";
