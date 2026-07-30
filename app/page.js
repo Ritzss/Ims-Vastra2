@@ -10,6 +10,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { FileText } from "lucide-react";
 import {
   MoreHorizontal,
   Package,
@@ -1004,6 +1005,34 @@ export default function VastraDrobeIMS() {
       setSortOrder("asc");
     }
   };
+
+  const generateInvoice = async (order) => {
+  try {
+    const token = localStorage.getItem("token");
+
+    const response = await fetch("/api/ims/orders/generate-invoice", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        orderNumber: order.orderNumber,
+      }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || "Failed to generate invoice");
+    }
+
+    window.open(data.invoiceUrl, "_blank");
+  } catch (err) {
+    console.error(err);
+    alert(err.message);
+  }
+};
 
   const sortedProducts = [...products].sort((a, b) => {
     if (!sortField) return 0;
@@ -2205,19 +2234,19 @@ export default function VastraDrobeIMS() {
                     <TableRow>
                       <TableHead>Product</TableHead>
 
-<TableHead>Warehouse</TableHead>
+                      <TableHead>Warehouse</TableHead>
 
-<TableHead>Color</TableHead>
+                      <TableHead>Color</TableHead>
 
-<TableHead>Design</TableHead>
+                      <TableHead>Design</TableHead>
 
-<TableHead>Size</TableHead>
+                      <TableHead>Size</TableHead>
 
-<TableHead>Quantity</TableHead>
+                      <TableHead>Quantity</TableHead>
 
-<TableHead>Reorder Level</TableHead>
+                      <TableHead>Reorder Level</TableHead>
 
-<TableHead>Reorder Qty</TableHead>
+                      <TableHead>Reorder Qty</TableHead>
                       {(currentUser?.role === "admin" ||
                         currentUser?.role === "inventory_manager") && (
                         <TableHead>Actions</TableHead>
@@ -2902,6 +2931,18 @@ export default function VastraDrobeIMS() {
                                   <span>Initiate Refund</span>
                                 </DropdownMenuItem>
                               )}
+
+                              <p className="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                                Documents
+                              </p>
+
+                              <DropdownMenuItem
+                                onClick={() => generateInvoice(order)}
+                                className="gap-3 rounded-lg"
+                              >
+                                <FileText className="h-4 w-4 text-red-500" />
+                                <span>Generate Invoice</span>
+                              </DropdownMenuItem>
 
                               <DropdownMenuSeparator />
 

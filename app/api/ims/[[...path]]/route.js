@@ -36,6 +36,8 @@ import { runTransaction } from "@/lib/runTransaction";
 import cloudinary from "@/lib/cloudinary";
 import ExcelJS from "exceljs";
 import { calculateTotalQuantity } from "@/lib/inventoryUtils";
+import generateInvoice from "@/lib/invoice/generateInvoice";
+import { PassThrough } from "stream";
 
 // Helper to log activities
 async function logActivity(
@@ -1311,6 +1313,97 @@ export async function POST(request, { params }) {
       });
     }
 
+    // ----- GENERATE INVOICE -----
+
+    if (routePath === "orders/generate-invoice") {
+  checkRole(user, ["admin", "inventory_manager"]);
+
+  const { orderNumber } = await request.json();
+
+  if (!orderNumber) {
+    return Response.json(
+      {
+        error: "Order Number is required",
+      },
+      {
+        status: 400,
+      },
+    );
+  }
+
+  const order = await Orders.findOne({ orderNumber });
+
+  if (!order) {
+    return Response.json(
+      {
+        error: "Order not found",
+      },
+      {
+        status: 404,
+      },
+    );
+  }
+
+  // Already generated
+  if (order.invoiceUrl) {
+    return Response.json({
+      success: true,
+      invoiceUrl: order.invoiceUrl,
+    });
+  }
+
+  try {
+    // Generate PDF
+    const pdf = await generateInvoice(order);
+
+    const pdfBuffer = Buffer.isBuffer(pdf) ? pdf : Buffer.from(pdf);
+
+    // Upload to Cloudinary
+    const uploadResult = await new Promise((resolve, reject) => {
+      const uploadStream = cloudinary.uploader.upload_stream(
+        {
+          folder: "invoices",
+          resource_type: "raw",
+          public_id: `${order.invoiceNumber}.pdf`,
+          overwrite: true,
+        },
+        (error, result) => {
+          if (error) return reject(error);
+          resolve(result);
+        },
+      );
+
+      const bufferStream = new PassThrough();
+
+      bufferStream.end(pdfBuffer);
+
+      bufferStream.pipe(uploadStream);
+    });
+
+    // Save invoice URL
+    order.invoiceUrl = uploadResult.secure_url;
+
+    await order.save();
+
+    return Response.json({
+      success: true,
+      invoiceUrl: uploadResult.secure_url,
+    });
+  } catch (err) {
+    console.error("Invoice Generation Error:", err);
+
+    return Response.json(
+      {
+        success: false,
+        error: err.message,
+      },
+      {
+        status: 500,
+      },
+    );
+  }
+}
+
     // ----- ORDERS -----
     // POST /api/ims/orders/send-email
 
@@ -2283,7 +2376,9 @@ export async function GET(request, { params }) {
 
       const transformedOrders = orders.map((order) => ({
         id: order._id.toString(),
-        orderNumber: order._id.toString().slice(-8),
+
+        orderNumber: order.orderNumber, // ✅ Actual order number
+
         items: order.items,
         totalAmount: order.totalAmount,
         deliveryAddress: order.deliveryAddress,
