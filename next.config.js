@@ -1,5 +1,13 @@
+/** @type {import('next').NextConfig} */
 const nextConfig = {
-  output: "standalone",
+  // output: "standalone",
+
+  serverExternalPackages: [
+    "@sparticuz/chromium",
+    "puppeteer-core",
+    "mongodb",
+  ],
+
   images: {
     remotePatterns: [
       {
@@ -9,8 +17,6 @@ const nextConfig = {
       },
     ],
   },
-  // Remove if not using Server Components
-  serverComponentsExternalPackages: ["mongodb"],
 
   async headers() {
     return [
@@ -27,7 +33,10 @@ const nextConfig = {
             key: "Access-Control-Allow-Methods",
             value: "GET, POST, PUT, DELETE, OPTIONS",
           },
-          { key: "Access-Control-Allow-Headers", value: "*" },
+          {
+            key: "Access-Control-Allow-Headers",
+            value: "*",
+          },
         ],
       },
     ];
