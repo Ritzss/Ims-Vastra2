@@ -1007,32 +1007,32 @@ export default function VastraDrobeIMS() {
   };
 
   const generateInvoice = async (order) => {
-  try {
-    const token = localStorage.getItem("token");
+    try {
+      const token = localStorage.getItem("token");
 
-    const response = await fetch("/api/ims/orders/generate-invoice", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        orderNumber: order.orderNumber,
-      }),
-    });
+      const response = await fetch("/api/ims/orders/generate-invoice", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          orderNumber: order.orderNumber,
+        }),
+      });
 
-    const data = await response.json();
+      const data = await response.json();
 
-    if (!response.ok) {
-      throw new Error(data.error || "Failed to generate invoice");
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to generate invoice");
+      }
+
+      window.open(data.invoiceUrl, "_blank");
+    } catch (err) {
+      console.error(err);
+      alert(err.message);
     }
-
-    window.open(data.invoiceUrl, "_blank");
-  } catch (err) {
-    console.error(err);
-    alert(err.message);
-  }
-};
+  };
 
   const sortedProducts = [...products].sort((a, b) => {
     if (!sortField) return 0;
@@ -2247,6 +2247,9 @@ export default function VastraDrobeIMS() {
                       <TableHead>Reorder Level</TableHead>
 
                       <TableHead>Reorder Qty</TableHead>
+
+                      <TableHead>Status</TableHead>
+
                       {(currentUser?.role === "admin" ||
                         currentUser?.role === "inventory_manager") && (
                         <TableHead>Actions</TableHead>
@@ -2284,6 +2287,24 @@ export default function VastraDrobeIMS() {
                                   <TableCell>{size.reorderLevel}</TableCell>
 
                                   <TableCell>{size.reorderQuantity}</TableCell>
+
+                                  <TableCell>
+                                    <Badge
+                                      className={
+                                        size.quantity === 0
+                                          ? "bg-red-100 text-red-700 hover:bg-red-100"
+                                          : size.quantity <= size.reorderLevel
+                                            ? "bg-orange-100 text-orange-700 hover:bg-orange-100"
+                                            : "bg-green-100 text-green-700 hover:bg-green-100"
+                                      }
+                                    >
+                                      {size.quantity === 0
+                                        ? "Out of Stock"
+                                        : size.quantity <= size.reorderLevel
+                                          ? "Low Stock"
+                                          : "In Stock"}
+                                    </Badge>
+                                  </TableCell>
 
                                   <TableCell>
                                     <Button
@@ -2332,6 +2353,24 @@ export default function VastraDrobeIMS() {
                               <TableCell>{size.reorderLevel}</TableCell>
 
                               <TableCell>{size.reorderQuantity}</TableCell>
+
+                              <TableCell>
+                                <Badge
+                                  className={
+                                    size.quantity === 0
+                                      ? "bg-red-100 text-red-700 hover:bg-red-100"
+                                      : size.quantity <= size.reorderLevel
+                                        ? "bg-orange-100 text-orange-700 hover:bg-orange-100"
+                                        : "bg-green-100 text-green-700 hover:bg-green-100"
+                                  }
+                                >
+                                  {size.quantity === 0
+                                    ? "Out of Stock"
+                                    : size.quantity <= size.reorderLevel
+                                      ? "Low Stock"
+                                      : "In Stock"}
+                                </Badge>
+                              </TableCell>
 
                               <TableCell>
                                 <Button

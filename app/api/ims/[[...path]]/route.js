@@ -2265,53 +2265,74 @@ export async function GET(request, { params }) {
     // ----- DASHBOARD -----
 
     if (routePath === "dashboard/stats") {
-      // Total stock value
-      const inventories = await IMSInventory.find().lean();
-      const productIds = [...new Set(inventories.map((inv) => inv.productId))];
+  const inventories = await IMSInventory.find().lean();
 
-      const products = await Product.find({
-        productId: { $in: productIds },
-      }).lean();
-      const productMap = Object.fromEntries(
-        products.map((p) => [p.productId, p]),
-      );
+  const productIds = [...new Set(inventories.map((inv) => inv.productId))];
 
-      let totalValue = 0;
-      let totalQuantity = 0;
+  const products = await Product.find({
+    productId: { $in: productIds },
+  }).lean();
 
-      inventories.forEach((inv) => {
-        const product = productMap[inv.productId];
-        if (product) {
-          totalValue += product.price * inv.quantity;
-          totalQuantity += inv.quantity;
+  const productMap = Object.fromEntries(
+    products.map((p) => [p.productId, p]),
+  );
+
+  let totalValue = 0;
+  let totalQuantity = 0;
+  let lowStockCount = 0;
+  let outOfStockCount = 0;
+
+  for (const inv of inventories) {
+    const product = productMap[inv.productId];
+    if (!product) continue;
+
+    for (const variant of inv.variants ?? []) {
+      // Products without designs
+      for (const size of variant.sizes ?? []) {
+        totalQuantity += size.quantity;
+        totalValue += size.quantity * product.price;
+
+        if (size.quantity === 0) {
+          outOfStockCount++;
         }
-      });
 
-      // Low stock count
-      const lowStockCount = inventories.filter(
-        (inv) => inv.quantity <= inv.reorderLevel,
-      ).length;
+        if (size.quantity <= size.reorderLevel) {
+          lowStockCount++;
+        }
+      }
 
-      // Out of stock
-      const outOfStockCount = inventories.filter(
-        (inv) => inv.quantity === 0,
-      ).length;
+      // Products with designs
+      for (const design of variant.designs ?? []) {
+        for (const size of design.sizes ?? []) {
+          totalQuantity += size.quantity;
+          totalValue += size.quantity * product.price;
 
-      // Recent movements
-      const recentMovements = await IMSStockMovement.find()
-        .sort({ createdAt: -1 })
-        .limit(10)
-        .lean();
+          if (size.quantity === 0) {
+            outOfStockCount++;
+          }
 
-      return Response.json({
-        totalStockValue: Math.round(totalValue * 100) / 100,
-        totalQuantity,
-        lowStockCount,
-        outOfStockCount,
-        uniqueProducts: productIds.length,
-        recentMovements,
-      });
+          if (size.quantity <= size.reorderLevel) {
+            lowStockCount++;
+          }
+        }
+      }
     }
+  }
+
+  const recentMovements = await IMSStockMovement.find()
+    .sort({ createdAt: -1 })
+    .limit(10)
+    .lean();
+
+  return Response.json({
+    totalStockValue: Math.round(totalValue * 100) / 100,
+    totalQuantity,
+    lowStockCount,
+    outOfStockCount,
+    uniqueProducts: productIds.length,
+    recentMovements,
+  });
+}
 
     // ----- ADMIN USERS -----
 
