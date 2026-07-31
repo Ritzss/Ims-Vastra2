@@ -39,6 +39,7 @@ import ExcelJS from "exceljs";
 import { calculateTotalQuantity } from "@/lib/inventoryUtils";
 import generateInvoice from "@/lib/invoice/generateInvoice";
 import { PassThrough } from "stream";
+import { getInventoryVariant, getProductVariant, getSize, hasDesign, updateProductTotalStock } from "@/lib/inventoryHelpers";
 
 // Helper to log activities
 async function logActivity(
