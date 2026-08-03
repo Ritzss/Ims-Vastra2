@@ -2298,7 +2298,7 @@ export async function GET(request, { params }) {
 
         if (i % 25 === 0) {
           console.log(
-            `Processing ${index + 1}/${movements.length} - ProductId: ${movement.productId}`,
+            `Processing ${i + 1}/${movements.length} - ProductId: ${movement.productId}`,
           );
         }
         const product = await Product.findOne(
