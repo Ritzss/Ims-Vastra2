@@ -2293,32 +2293,43 @@ export async function GET(request, { params }) {
       console.time("Loop");
       let i = 0;
 
-      for (const movement of movements) {
-        i++;
+      // Fetch all required products in ONE query
+const productIds = [...new Set(movements.map((m) => m.productId))];
 
-        if (i % 25 === 0) {
-          console.log(
-            `Processing ${i + 1}/${movements.length} - ProductId: ${movement.productId}`,
-          );
-        }
-        const product = await Product.findOne(
-          { productId: movement.productId },
-          { name: 1 },
-        ).lean();
+const products = await Product.find(
+  {
+    productId: { $in: productIds },
+  },
+  {
+    productId: 1,
+    name: 1,
+    _id: 0,
+  }
+).lean();
 
-        sheet.addRow({
-          date: new Date(movement.createdAt).toLocaleString(),
-          product: product?.name || "Unknown Product",
-          size: movement.size,
-          type: movement.type.toUpperCase(),
-          quantity: movement.quantity,
-          from: movement.fromWarehouseId?.name || "-",
-          to: movement.toWarehouseId?.name || "-",
-          reference: movement.referenceNumber || "-",
-          reason: movement.reason || "-",
-          performedBy: movement.performedBy?.name || "-",
-        });
-      }
+// Create a lookup map
+const productMap = new Map();
+
+for (const product of products) {
+  productMap.set(product.productId, product.name);
+}
+
+console.time("Loop");
+
+for (const movement of movements) {
+  sheet.addRow({
+    date: new Date(movement.createdAt).toLocaleString(),
+    product: productMap.get(movement.productId) || "Unknown Product",
+    size: movement.size,
+    type: movement.type.toUpperCase(),
+    quantity: movement.quantity,
+    from: movement.fromWarehouseId?.name || "-",
+    to: movement.toWarehouseId?.name || "-",
+    reference: movement.referenceNumber || "-",
+    reason: movement.reason || "-",
+    performedBy: movement.performedBy?.name || "-",
+  });
+}
 
       console.timeEnd("Loop");
 
