@@ -2291,8 +2291,14 @@ export async function GET(request, { params }) {
       console.log("Movements:", movements.length);
 
       console.time("Loop");
+      let i = 0;
 
       for (const movement of movements) {
+        i++;
+
+        if (i % 25 === 0) {
+          console.log(`Processing ${i}/${movements.length}`);
+        }
         const product = await Product.findOne(
           { productId: movement.productId },
           { name: 1 },
