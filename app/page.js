@@ -2762,6 +2762,7 @@ export default function VastraDrobeIMS() {
                       <TableHead>Order No.</TableHead>
                       <TableHead>Total</TableHead>
                       <TableHead>Items</TableHead>
+                      <TableHead>Name</TableHead>
                       <TableHead>Delivery Address</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead>Created</TableHead>
@@ -2800,6 +2801,11 @@ export default function VastraDrobeIMS() {
                           ))}
                         </TableCell>
 
+                        <TableCell className="text-sm">
+                          {order.deliveryAddress
+                            ? `${order.deliveryAddress.name}`
+                            : "—"}
+                        </TableCell>
                         <TableCell className="text-sm">
                           {order.deliveryAddress
                             ? `${order.deliveryAddress.address} (${order.deliveryAddress.phone})`
