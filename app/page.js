@@ -236,11 +236,13 @@ export default function VastraDrobeIMS() {
   const [stockMovements, setStockMovements] = useState([]);
   const [movementForm, setMovementForm] = useState({
     productId: "",
+    color: "",
+    design: "",
     size: "",
-    fromWarehouseId: "",
-    toWarehouseId: "",
     quantity: 0,
     type: "in",
+    fromWarehouseId: "",
+    toWarehouseId: "",
     reason: "",
     referenceNumber: "",
     notes: "",
@@ -737,6 +739,8 @@ export default function VastraDrobeIMS() {
     try {
       await apiCall("/stock-movements/create", "POST", {
         productId: Number(movementForm.productId),
+        color: movementForm.color,
+        design: movementForm.design,
         size: movementForm.size,
         fromWarehouseId: movementForm.fromWarehouseId || null,
         toWarehouseId: movementForm.toWarehouseId || null,
@@ -750,9 +754,11 @@ export default function VastraDrobeIMS() {
       toast.success("Stock movement recorded successfully");
       setShowMovementDialog(false);
 
-      // RESET FORM (IMPORTANT)
+      // Reset Form
       setMovementForm({
         productId: "",
+        color: "", // ✅ Added
+        design: "",
         size: "",
         fromWarehouseId: "",
         toWarehouseId: "",
@@ -1053,6 +1059,27 @@ export default function VastraDrobeIMS() {
 
     return sortOrder === "asc" ? aValue - bValue : bValue - aValue;
   });
+
+  const selectedMovementProduct = products.find(
+    (p) => String(p.productId) === movementForm.productId,
+  );
+
+  const selectedMovementVariant = selectedMovementProduct?.variants?.find(
+    (v) => v.color === movementForm.color,
+  );
+
+  const movementHasDesigns =
+    (selectedMovementVariant?.designs?.length ?? 0) > 0;
+
+  const selectedMovementDesign = movementHasDesigns
+    ? selectedMovementVariant.designs.find(
+        (d) => d.design === movementForm.design,
+      )
+    : null;
+
+  const availableMovementSizes = movementHasDesigns
+    ? (selectedMovementDesign?.sizes ?? [])
+    : (selectedMovementVariant?.sizes ?? []);
 
   const filteredInventory = inventory.filter((inv) => {
     const search = inventorySearch.toLowerCase().trim();
@@ -2485,7 +2512,7 @@ export default function VastraDrobeIMS() {
                     Record Movement
                   </Button>
                 </DialogTrigger>
-                <DialogContent className="max-w-2xl">
+                <DialogContent className="max-w-2xl h-[98vh] overflow-y-auto">
                   <DialogHeader>
                     <DialogTitle>Record Stock Movement</DialogTitle>
                   </DialogHeader>
@@ -2521,39 +2548,134 @@ export default function VastraDrobeIMS() {
                           setMovementForm((prev) => ({
                             ...prev,
                             productId: val,
+                            color: "",
+                            design: "",
+                            size: "",
                           }))
                         }
                       >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select product" />
+                        <SelectTrigger className="">
+                          <SelectValue placeholder="Select Product" />
                         </SelectTrigger>
-                        <SelectContent>
-                          {products.map((p) => {
-                            return (
-                              <SelectItem
-                                key={p.productId}
-                                value={String(p.productId)}
-                              >
-                                {p.name}
-                              </SelectItem>
-                            );
-                          })}
+
+                        <SelectContent className="max-h-72 overflow-y-auto">
+                          {products.map((p) => (
+                            <SelectItem
+                              key={p.productId}
+                              value={String(p.productId)}
+                              className="max-w-[450px]"
+                            >
+                              <span className="block truncate">{p.name}</span>
+                            </SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                     </div>
 
                     <div>
-                      <Label>Size :</Label>
-                      <Input
-                        placeholder="Size (e.g. S, M, 5-6Y)"
-                        value={movementForm.size}
-                        onChange={(e) =>
+                      <Label>Color</Label>
+
+                      <Select
+                        value={movementForm.color}
+                        onValueChange={(val) =>
                           setMovementForm((prev) => ({
                             ...prev,
-                            size: e.target.value,
+                            color: val,
+                            design: "",
+                            size: "",
                           }))
                         }
-                      />
+                      >
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Select Color" />
+                        </SelectTrigger>
+
+                        <SelectContent className="max-h-60 overflow-y-auto">
+                          {products
+                            .find(
+                              (p) =>
+                                String(p.productId) === movementForm.productId,
+                            )
+                            ?.variants?.map((variant) => (
+                              <SelectItem
+                                key={variant.color}
+                                value={variant.color}
+                              >
+                                <span className="capitalize truncate">
+                                  {variant.color}
+                                </span>
+                              </SelectItem>
+                            ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {movementHasDesigns && (
+                      <div>
+                        <Label>Design</Label>
+
+                        <Select
+                          value={movementForm.design}
+                          onValueChange={(val) =>
+                            setMovementForm((prev) => ({
+                              ...prev,
+                              design: val,
+                              size: "",
+                            }))
+                          }
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select Design" />
+                          </SelectTrigger>
+
+                          <SelectContent className="max-h-60 overflow-y-auto">
+                            {selectedMovementVariant?.designs?.map((design) => (
+                              <SelectItem
+                                key={design.design}
+                                value={design.design}
+                              >
+                                {design.design}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+
+                    <div>
+                      <Label>Size</Label>
+
+                      <Select
+                        value={movementForm.size}
+                        onValueChange={(val) =>
+                          setMovementForm((prev) => ({
+                            ...prev,
+                            size: val,
+                          }))
+                        }
+                        disabled={
+                          !movementForm.color ||
+                          (movementHasDesigns && !movementForm.design)
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue
+                            placeholder={
+                              movementHasDesigns
+                                ? "Select Design First"
+                                : "Select Size"
+                            }
+                          />
+                        </SelectTrigger>
+
+                        <SelectContent className="max-h-60 overflow-y-auto">
+                          {availableMovementSizes.map((size, index) => (
+                            <SelectItem key={index} value={String(size)}>
+                              <span>{String(size)}</span>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">

@@ -694,6 +694,12 @@ const IMSStockMovementSchema = new mongoose.Schema(
       trim: true,
     },
 
+    design: {
+      type: String,
+      default: null,
+      trim: true,
+    },
+
     size: {
       type: String,
       required: true,

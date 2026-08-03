@@ -39,7 +39,13 @@ import ExcelJS from "exceljs";
 import { calculateTotalQuantity } from "@/lib/inventoryUtils";
 import generateInvoice from "@/lib/invoice/generateInvoice";
 import { PassThrough } from "stream";
-import { getInventoryVariant, getProductVariant, getSize, hasDesign, updateProductTotalStock } from "@/lib/inventoryHelpers";
+import {
+  getInventoryVariant,
+  getProductVariant,
+  getSize,
+  hasDesign,
+  updateProductTotalStock,
+} from "@/lib/inventoryHelpers";
 
 // Helper to log activities
 async function logActivity(
@@ -532,6 +538,8 @@ export async function POST(request, { params }) {
 
       const {
         productId,
+        color,
+        design,
         size,
         quantity,
         type,
@@ -544,12 +552,18 @@ export async function POST(request, { params }) {
       const pid = parseInt(productId);
       const qty = parseInt(quantity);
 
+      if (!color) {
+        return Response.json({ error: "Color is required" }, { status: 400 });
+      }
+
       const result = await runTransaction(async (session) => {
         // 1️⃣ Create movement (AUDIT)
         const movement = await IMSStockMovement.create(
           [
             {
               productId: pid,
+              color,
+              design,
               size,
               quantity: qty,
               type,
@@ -565,14 +579,67 @@ export async function POST(request, { params }) {
 
         // helper
         const adjustInventory = async (warehouseId, delta) => {
-          return IMSInventory.findOneAndUpdate(
-            { productId: pid, warehouseId, size },
+          const inventory = await IMSInventory.findOne(
             {
-              $inc: { quantity: delta },
-              $set: { lastUpdated: new Date(), updatedBy: user.id },
+              productId: pid,
+              warehouseId,
             },
-            { new: true, upsert: true, session },
+            null,
+            { session },
           );
+
+          if (!inventory) {
+            throw new Error("Inventory not found");
+          }
+
+          const variant = inventory.variants.find((v) => v.color === color);
+
+          if (!variant) {
+            throw new Error(`Color '${color}' not found`);
+          }
+
+          let sizeNode;
+
+          if (design) {
+            const designNode = variant.designs.find((d) => d.design === design);
+
+            if (!designNode) {
+              throw new Error(`Design '${design}' not found`);
+            }
+
+            sizeNode = designNode.sizes.find((s) => s.size === size);
+          } else {
+            sizeNode = variant.sizes.find((s) => s.size === size);
+          }
+
+          if (!sizeNode) {
+            throw new Error(`Size '${size}' not found`);
+          }
+
+          if (sizeNode.quantity + delta < 0) {
+            throw new Error("Insufficient stock");
+          }
+
+          sizeNode.quantity += delta;
+
+          inventory.totalQuantity = inventory.variants.reduce(
+            (total, v) =>
+              total +
+              v.sizes.reduce((sum, s) => sum + s.quantity, 0) +
+              v.designs.reduce(
+                (designSum, d) =>
+                  designSum + d.sizes.reduce((s, ds) => s + ds.quantity, 0),
+                0,
+              ),
+            0,
+          );
+
+          inventory.lastUpdated = new Date();
+          inventory.updatedBy = user.id;
+
+          await inventory.save({ session });
+
+          return inventory;
         };
 
         if (["in", "return"].includes(type)) {
@@ -594,7 +661,7 @@ export async function POST(request, { params }) {
         });
 
         const totalStock = inventories.reduce(
-          (sum, inv) => sum + inv.quantity,
+          (sum, inv) => sum + (inv.totalQuantity || 0),
           0,
         );
 
@@ -1318,93 +1385,93 @@ export async function POST(request, { params }) {
     // ----- GENERATE INVOICE -----
 
     if (routePath === "orders/generate-invoice") {
-  checkRole(user, ["admin", "inventory_manager"]);
+      checkRole(user, ["admin", "inventory_manager"]);
 
-  const { orderNumber } = await request.json();
+      const { orderNumber } = await request.json();
 
-  if (!orderNumber) {
-    return Response.json(
-      {
-        error: "Order Number is required",
-      },
-      {
-        status: 400,
-      },
-    );
-  }
+      if (!orderNumber) {
+        return Response.json(
+          {
+            error: "Order Number is required",
+          },
+          {
+            status: 400,
+          },
+        );
+      }
 
-  const order = await Orders.findOne({ orderNumber });
+      const order = await Orders.findOne({ orderNumber });
 
-  if (!order) {
-    return Response.json(
-      {
-        error: "Order not found",
-      },
-      {
-        status: 404,
-      },
-    );
-  }
+      if (!order) {
+        return Response.json(
+          {
+            error: "Order not found",
+          },
+          {
+            status: 404,
+          },
+        );
+      }
 
-  // Already generated
-  if (order.invoiceUrl) {
-    return Response.json({
-      success: true,
-      invoiceUrl: order.invoiceUrl,
-    });
-  }
+      // Already generated
+      if (order.invoiceUrl) {
+        return Response.json({
+          success: true,
+          invoiceUrl: order.invoiceUrl,
+        });
+      }
 
-  try {
-    // Generate PDF
-    const pdf = await generateInvoice(order);
+      try {
+        // Generate PDF
+        const pdf = await generateInvoice(order);
 
-    const pdfBuffer = Buffer.isBuffer(pdf) ? pdf : Buffer.from(pdf);
+        const pdfBuffer = Buffer.isBuffer(pdf) ? pdf : Buffer.from(pdf);
 
-    // Upload to Cloudinary
-    const uploadResult = await new Promise((resolve, reject) => {
-      const uploadStream = cloudinary.uploader.upload_stream(
-        {
-          folder: "invoices",
-          resource_type: "raw",
-          public_id: `${order.invoiceNumber}.pdf`,
-          overwrite: true,
-        },
-        (error, result) => {
-          if (error) return reject(error);
-          resolve(result);
-        },
-      );
+        // Upload to Cloudinary
+        const uploadResult = await new Promise((resolve, reject) => {
+          const uploadStream = cloudinary.uploader.upload_stream(
+            {
+              folder: "invoices",
+              resource_type: "raw",
+              public_id: `${order.invoiceNumber}.pdf`,
+              overwrite: true,
+            },
+            (error, result) => {
+              if (error) return reject(error);
+              resolve(result);
+            },
+          );
 
-      const bufferStream = new PassThrough();
+          const bufferStream = new PassThrough();
 
-      bufferStream.end(pdfBuffer);
+          bufferStream.end(pdfBuffer);
 
-      bufferStream.pipe(uploadStream);
-    });
+          bufferStream.pipe(uploadStream);
+        });
 
-    // Save invoice URL
-    order.invoiceUrl = uploadResult.secure_url;
+        // Save invoice URL
+        order.invoiceUrl = uploadResult.secure_url;
 
-    await order.save();
+        await order.save();
 
-    return Response.json({
-      success: true,
-      invoiceUrl: uploadResult.secure_url,
-    });
-  } catch (err) {
-    console.error("Invoice Generation Error:", err);
+        return Response.json({
+          success: true,
+          invoiceUrl: uploadResult.secure_url,
+        });
+      } catch (err) {
+        console.error("Invoice Generation Error:", err);
 
-    return Response.json(
-      {
-        success: false,
-        error: err.message,
-      },
-      {
-        status: 500,
-      },
-    );
-  }
-}
+        return Response.json(
+          {
+            success: false,
+            error: err.message,
+          },
+          {
+            status: 500,
+          },
+        );
+      }
+    }
 
     // ----- ORDERS -----
     // POST /api/ims/orders/send-email
@@ -2266,74 +2333,74 @@ export async function GET(request, { params }) {
     // ----- DASHBOARD -----
 
     if (routePath === "dashboard/stats") {
-  const inventories = await IMSInventory.find().lean();
+      const inventories = await IMSInventory.find().lean();
 
-  const productIds = [...new Set(inventories.map((inv) => inv.productId))];
+      const productIds = [...new Set(inventories.map((inv) => inv.productId))];
 
-  const products = await Product.find({
-    productId: { $in: productIds },
-  }).lean();
+      const products = await Product.find({
+        productId: { $in: productIds },
+      }).lean();
 
-  const productMap = Object.fromEntries(
-    products.map((p) => [p.productId, p]),
-  );
+      const productMap = Object.fromEntries(
+        products.map((p) => [p.productId, p]),
+      );
 
-  let totalValue = 0;
-  let totalQuantity = 0;
-  let lowStockCount = 0;
-  let outOfStockCount = 0;
+      let totalValue = 0;
+      let totalQuantity = 0;
+      let lowStockCount = 0;
+      let outOfStockCount = 0;
 
-  for (const inv of inventories) {
-    const product = productMap[inv.productId];
-    if (!product) continue;
+      for (const inv of inventories) {
+        const product = productMap[inv.productId];
+        if (!product) continue;
 
-    for (const variant of inv.variants ?? []) {
-      // Products without designs
-      for (const size of variant.sizes ?? []) {
-        totalQuantity += size.quantity;
-        totalValue += size.quantity * product.price;
+        for (const variant of inv.variants ?? []) {
+          // Products without designs
+          for (const size of variant.sizes ?? []) {
+            totalQuantity += size.quantity;
+            totalValue += size.quantity * product.price;
 
-        if (size.quantity === 0) {
-          outOfStockCount++;
-        }
+            if (size.quantity === 0) {
+              outOfStockCount++;
+            }
 
-        if (size.quantity <= size.reorderLevel) {
-          lowStockCount++;
+            if (size.quantity <= size.reorderLevel) {
+              lowStockCount++;
+            }
+          }
+
+          // Products with designs
+          for (const design of variant.designs ?? []) {
+            for (const size of design.sizes ?? []) {
+              totalQuantity += size.quantity;
+              totalValue += size.quantity * product.price;
+
+              if (size.quantity === 0) {
+                outOfStockCount++;
+              }
+
+              if (size.quantity <= size.reorderLevel) {
+                lowStockCount++;
+              }
+            }
+          }
         }
       }
 
-      // Products with designs
-      for (const design of variant.designs ?? []) {
-        for (const size of design.sizes ?? []) {
-          totalQuantity += size.quantity;
-          totalValue += size.quantity * product.price;
+      const recentMovements = await IMSStockMovement.find()
+        .sort({ createdAt: -1 })
+        .limit(10)
+        .lean();
 
-          if (size.quantity === 0) {
-            outOfStockCount++;
-          }
-
-          if (size.quantity <= size.reorderLevel) {
-            lowStockCount++;
-          }
-        }
-      }
+      return Response.json({
+        totalStockValue: Math.round(totalValue * 100) / 100,
+        totalQuantity,
+        lowStockCount,
+        outOfStockCount,
+        uniqueProducts: productIds.length,
+        recentMovements,
+      });
     }
-  }
-
-  const recentMovements = await IMSStockMovement.find()
-    .sort({ createdAt: -1 })
-    .limit(10)
-    .lean();
-
-  return Response.json({
-    totalStockValue: Math.round(totalValue * 100) / 100,
-    totalQuantity,
-    lowStockCount,
-    outOfStockCount,
-    uniqueProducts: productIds.length,
-    recentMovements,
-  });
-}
 
     // ----- ADMIN USERS -----
 
