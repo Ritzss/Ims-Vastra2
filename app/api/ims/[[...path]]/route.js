@@ -2243,8 +2243,9 @@ export async function GET(request, { params }) {
     }
 
     if (routePath === "stock-movements/export") {
-      const workbook = new ExcelJS.Workbook();
+      console.time("Total Export");
 
+      const workbook = new ExcelJS.Workbook();
       const sheet = workbook.addWorksheet("Stock Movements");
 
       sheet.columns = [
@@ -2276,6 +2277,8 @@ export async function GET(request, { params }) {
         vertical: "middle",
       };
 
+      console.time("Fetch Movements");
+
       const movements = await IMSStockMovement.find()
         .populate("fromWarehouseId")
         .populate("toWarehouseId")
@@ -2283,10 +2286,17 @@ export async function GET(request, { params }) {
         .sort({ createdAt: -1 })
         .lean();
 
+      console.timeEnd("Fetch Movements");
+
+      console.log("Movements:", movements.length);
+
+      console.time("Loop");
+
       for (const movement of movements) {
-        const product = await Product.findOne({
-          productId: movement.productId,
-        }).lean();
+        const product = await Product.findOne(
+          { productId: movement.productId },
+          { name: 1 },
+        ).lean();
 
         sheet.addRow({
           date: new Date(movement.createdAt).toLocaleString(),
@@ -2301,6 +2311,10 @@ export async function GET(request, { params }) {
           performedBy: movement.performedBy?.name || "-",
         });
       }
+
+      console.timeEnd("Loop");
+
+      console.time("Styling");
 
       sheet.eachRow((row) => {
         row.eachCell((cell) => {
@@ -2318,9 +2332,17 @@ export async function GET(request, { params }) {
         });
       });
 
+      console.timeEnd("Styling");
+
+      console.time("Write Excel");
+
       const buffer = await workbook.xlsx.writeBuffer();
 
-      return new Response(buffer, {
+      console.timeEnd("Write Excel");
+
+      console.timeEnd("Total Export");
+
+      return new Response(Buffer.from(buffer), {
         headers: {
           "Content-Type":
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
