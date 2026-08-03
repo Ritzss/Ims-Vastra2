@@ -2243,7 +2243,6 @@ export async function GET(request, { params }) {
     }
 
     if (routePath === "stock-movements/export") {
-      console.time("Total Export");
 
       const workbook = new ExcelJS.Workbook();
       const sheet = workbook.addWorksheet("Stock Movements");
@@ -2277,20 +2276,12 @@ export async function GET(request, { params }) {
         vertical: "middle",
       };
 
-      console.time("Fetch Movements");
-
       const movements = await IMSStockMovement.find()
         .populate("fromWarehouseId")
         .populate("toWarehouseId")
         .populate("performedBy", "name")
         .sort({ createdAt: -1 })
         .lean();
-
-      console.timeEnd("Fetch Movements");
-
-      console.log("Movements:", movements.length);
-
-      console.time("Loop");
       let i = 0;
 
       // Fetch all required products in ONE query
@@ -2314,8 +2305,6 @@ for (const product of products) {
   productMap.set(product.productId, product.name);
 }
 
-console.time("Loop");
-
 for (const movement of movements) {
   sheet.addRow({
     date: new Date(movement.createdAt).toLocaleString(),
@@ -2330,10 +2319,6 @@ for (const movement of movements) {
     performedBy: movement.performedBy?.name || "-",
   });
 }
-
-      console.timeEnd("Loop");
-
-      console.time("Styling");
 
       sheet.eachRow((row) => {
         row.eachCell((cell) => {
@@ -2351,15 +2336,7 @@ for (const movement of movements) {
         });
       });
 
-      console.timeEnd("Styling");
-
-      console.time("Write Excel");
-
       const buffer = await workbook.xlsx.writeBuffer();
-
-      console.timeEnd("Write Excel");
-
-      console.timeEnd("Total Export");
 
       return new Response(Buffer.from(buffer), {
         headers: {
