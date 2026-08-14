@@ -92,6 +92,16 @@ const ProductSchema = new mongoose.Schema(
       packerContact: { type: String },
       unitCount: { type: String },
     },
+    
+    ratingAverage: {
+      type: Number,
+      default: 0,
+    },
+
+    ratingCount: {
+      type: Number,
+      default: 0,
+    },
   },
   { timestamps: true },
 );
