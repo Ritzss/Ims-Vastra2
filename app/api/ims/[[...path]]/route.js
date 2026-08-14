@@ -2243,7 +2243,6 @@ export async function GET(request, { params }) {
     }
 
     if (routePath === "stock-movements/export") {
-
       const workbook = new ExcelJS.Workbook();
       const sheet = workbook.addWorksheet("Stock Movements");
 
@@ -2285,40 +2284,40 @@ export async function GET(request, { params }) {
       let i = 0;
 
       // Fetch all required products in ONE query
-const productIds = [...new Set(movements.map((m) => m.productId))];
+      const productIds = [...new Set(movements.map((m) => m.productId))];
 
-const products = await Product.find(
-  {
-    productId: { $in: productIds },
-  },
-  {
-    productId: 1,
-    name: 1,
-    _id: 0,
-  }
-).lean();
+      const products = await Product.find(
+        {
+          productId: { $in: productIds },
+        },
+        {
+          productId: 1,
+          name: 1,
+          _id: 0,
+        },
+      ).lean();
 
-// Create a lookup map
-const productMap = new Map();
+      // Create a lookup map
+      const productMap = new Map();
 
-for (const product of products) {
-  productMap.set(product.productId, product.name);
-}
+      for (const product of products) {
+        productMap.set(product.productId, product.name);
+      }
 
-for (const movement of movements) {
-  sheet.addRow({
-    date: new Date(movement.createdAt).toLocaleString(),
-    product: productMap.get(movement.productId) || "Unknown Product",
-    size: movement.size,
-    type: movement.type.toUpperCase(),
-    quantity: movement.quantity,
-    from: movement.fromWarehouseId?.name || "-",
-    to: movement.toWarehouseId?.name || "-",
-    reference: movement.referenceNumber || "-",
-    reason: movement.reason || "-",
-    performedBy: movement.performedBy?.name || "-",
-  });
-}
+      for (const movement of movements) {
+        sheet.addRow({
+          date: new Date(movement.createdAt).toLocaleString(),
+          product: productMap.get(movement.productId) || "Unknown Product",
+          size: movement.size,
+          type: movement.type.toUpperCase(),
+          quantity: movement.quantity,
+          from: movement.fromWarehouseId?.name || "-",
+          to: movement.toWarehouseId?.name || "-",
+          reference: movement.referenceNumber || "-",
+          reason: movement.reason || "-",
+          performedBy: movement.performedBy?.name || "-",
+        });
+      }
 
       sheet.eachRow((row) => {
         row.eachCell((cell) => {

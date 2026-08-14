@@ -2912,9 +2912,10 @@ export default function VastraDrobeIMS() {
                                 </summary>
 
                                 <div className="mt-2 ml-4 text-muted-foreground">
-                                  <p>Qty: {item.qty}</p>
+                                  <p>Qty: {item.quantity}</p>
                                   <p>Size: {item.size}</p>
                                   <p>Color: {item.color}</p>
+                                  {item.design && (<p>Design: {item.design}</p>)}
                                   <p>Name: {item.name}</p>
                                   <p>Price: ₹{item.price}</p>
                                 </div>
