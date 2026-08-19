@@ -75,6 +75,7 @@ const ProductSchema = new mongoose.Schema(
         "generalTopBottom",
         "MensShirt",
         "MensKurta",
+        "Mensjacket",
         "menBottom",
       ],
     },
