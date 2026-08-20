@@ -211,8 +211,9 @@ export default function VastraDrobeIMS() {
   const [inventoryFilter, setInventoryFilter] = useState("all");
   const [selectedWarehouse, setSelectedWarehouse] = useState("");
   const [showEditInventoryDialog, setShowEditInventoryDialog] = useState(false);
+  const [selectedInventorySizes, setSelectedInventorySizes] = useState({});
   const [inventoryPage, setInventoryPage] = useState(1);
-  const [inventoryLimit] = useState(10);
+  const [inventoryLimit] = useState(20);
   const [inventoryTotal, setInventoryTotal] = useState(0);
   const [editInventoryForm, setEditInventoryForm] = useState({
     inventoryId: "",
@@ -425,17 +426,48 @@ export default function VastraDrobeIMS() {
     }
   };
 
+  // const loadInventory = async () => {
+  //   try {
+  //     const lowStock = inventoryFilter === "low" ? "true" : "false";
+  //     const warehouseParam = selectedWarehouse
+  //       ? `&warehouseId=${selectedWarehouse}`
+  //       : "";
+  //     const data = await apiCall(
+  //       `/inventory/list?page=${inventoryPage}&limit=${inventoryLimit}&lowStock=${lowStock}${warehouseParam}`,
+  //     );
+  //     setInventory(data.inventory);
+  //   } catch (error) {
+  //     toast.error("Failed to load inventory");
+  //   }
+  // };
+
   const loadInventory = async () => {
     try {
-      const lowStock = inventoryFilter === "low" ? "true" : "false";
-      const warehouseParam = selectedWarehouse
-        ? `&warehouseId=${selectedWarehouse}`
-        : "";
-      const data = await apiCall(
-        `/inventory/list?page=${inventoryPage}&limit=${inventoryLimit}&lowStock=${lowStock}${warehouseParam}`,
-      );
-      setInventory(data.inventory);
+      const params = new URLSearchParams({
+        page: String(inventoryPage),
+        limit: String(inventoryLimit),
+      });
+
+      // Only request low-stock records when the Low Stock filter is selected.
+      if (inventoryFilter === "low") {
+        params.set("lowStock", "true");
+      }
+
+      // "all" means no warehouse filter should be sent to the API.
+      if (selectedWarehouse && selectedWarehouse !== "all") {
+        params.set("warehouseId", selectedWarehouse);
+      }
+
+      const data = await apiCall(`/inventory/list?${params.toString()}`);
+
+      console.log("INVENTORY PAGE:", inventoryPage);
+      console.log("INVENTORY REQUEST:", params.toString());
+      console.log("INVENTORY RESPONSE:", data);
+
+      setInventory(data.inventory || []);
+      setInventoryTotal(data.total || 0);
     } catch (error) {
+      console.error("INVENTORY ERROR:", error);
       toast.error("Failed to load inventory");
     }
   };
@@ -476,18 +508,18 @@ export default function VastraDrobeIMS() {
   };
 
   const loadActivityLogs = async () => {
-  try {
-    const data = await apiCall(
-      `/activity-logs/list?page=${logPage}&limit=${logLimit}`,
-    );
+    try {
+      const data = await apiCall(
+        `/activity-logs/list?page=${logPage}&limit=${logLimit}`,
+      );
 
-    setActivityLogs(data.logs);
-    setLogTotal(data.total);
-  } catch (error) {
-    console.error("ACTIVITY LOG ERROR:", error);
-    toast.error("Failed to load activity logs");
-  }
-};
+      setActivityLogs(data.logs);
+      setLogTotal(data.total);
+    } catch (error) {
+      console.error("ACTIVITY LOG ERROR:", error);
+      toast.error("Failed to load activity logs");
+    }
+  };
 
   // CRUD operations
   const createProduct = async (e) => {
@@ -2359,137 +2391,237 @@ export default function VastraDrobeIMS() {
                     {filteredInventory.map((inventory) => (
                       <React.Fragment key={inventory._id}>
                         {inventory.variants.map((variant) => {
-                          // -------------------------------
-                          // PRODUCT WITH DESIGNS
-                          // -------------------------------
-
+                          // -----------------------------------------
+                          // Products WITH designs
+                          // One row = one product + color + design.
+                          // The size is selected from a dropdown.
+                          // -----------------------------------------
                           if (variant.designs && variant.designs.length > 0) {
-                            return variant.designs.map((design) =>
-                              design.sizes.map((size) => (
-                                <TableRow
-                                  key={`${inventory._id}-${variant.color}-${design.design}-${size.size}`}
-                                >
+                            return variant.designs.map((design) => {
+                              const sizes = design.sizes || [];
+
+                              if (sizes.length === 0) return null;
+
+                              const rowKey = `${inventory._id}-${variant.color}-${design.design}`;
+
+                              // Use the previously selected size, or default to the first size.
+                              const selectedSizeValue =
+                                selectedInventorySizes[rowKey] || sizes[0].size;
+
+                              const selectedSize =
+                                sizes.find(
+                                  (size) => size.size === selectedSizeValue,
+                                ) || sizes[0];
+
+                              const isOutOfStock = selectedSize.quantity === 0;
+                              const isLowStock =
+                                selectedSize.quantity <=
+                                selectedSize.reorderLevel;
+
+                              return (
+                                <TableRow key={rowKey}>
                                   <TableCell>{inventory.productId}</TableCell>
 
                                   <TableCell>
-                                    {inventory.warehouseId?.name}
+                                    {inventory.warehouseId?.name || "-"}
                                   </TableCell>
 
                                   <TableCell>{variant.color}</TableCell>
 
                                   <TableCell>{design.design}</TableCell>
 
-                                  <TableCell>{size.size}</TableCell>
+                                  <TableCell>
+                                    <Select
+                                      value={selectedSize.size}
+                                      onValueChange={(value) =>
+                                        setSelectedInventorySizes((prev) => ({
+                                          ...prev,
+                                          [rowKey]: value,
+                                        }))
+                                      }
+                                    >
+                                      <SelectTrigger className="w-24">
+                                        <SelectValue />
+                                      </SelectTrigger>
 
-                                  <TableCell>{size.quantity}</TableCell>
+                                      <SelectContent>
+                                        {sizes.map((size) => (
+                                          <SelectItem
+                                            key={size.size}
+                                            value={size.size}
+                                          >
+                                            {size.size}
+                                          </SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
+                                  </TableCell>
 
-                                  <TableCell>{size.reorderLevel}</TableCell>
+                                  <TableCell>{selectedSize.quantity}</TableCell>
 
-                                  <TableCell>{size.reorderQuantity}</TableCell>
+                                  <TableCell>
+                                    {selectedSize.reorderLevel}
+                                  </TableCell>
+
+                                  <TableCell>
+                                    {selectedSize.reorderQuantity}
+                                  </TableCell>
 
                                   <TableCell>
                                     <Badge
                                       className={
-                                        size.quantity === 0
+                                        isOutOfStock
                                           ? "bg-red-100 text-red-700 hover:bg-red-100"
-                                          : size.quantity <= size.reorderLevel
+                                          : isLowStock
                                             ? "bg-orange-100 text-orange-700 hover:bg-orange-100"
                                             : "bg-green-100 text-green-700 hover:bg-green-100"
                                       }
                                     >
-                                      {size.quantity === 0
+                                      {isOutOfStock
                                         ? "Out of Stock"
-                                        : size.quantity <= size.reorderLevel
+                                        : isLowStock
                                           ? "Low Stock"
                                           : "In Stock"}
                                     </Badge>
                                   </TableCell>
 
-                                  <TableCell>
-                                    <Button
-                                      size="sm"
-                                      variant="outline"
-                                      onClick={() =>
-                                        editInventory(
-                                          inventory,
-                                          variant.color,
-                                          design.design,
-                                          size,
-                                          size.size,
-                                        )
-                                      }
-                                    >
-                                      Edit
-                                    </Button>
-                                  </TableCell>
+                                  {(currentUser?.role === "admin" ||
+                                    currentUser?.role ===
+                                      "inventory_manager") && (
+                                    <TableCell>
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() =>
+                                          editInventory(
+                                            inventory,
+                                            variant.color,
+                                            design.design,
+                                            selectedSize,
+                                            selectedSize.size,
+                                          )
+                                        }
+                                      >
+                                        Edit
+                                      </Button>
+                                    </TableCell>
+                                  )}
                                 </TableRow>
-                              )),
-                            );
+                              );
+                            });
                           }
 
-                          // -------------------------------
-                          // PRODUCT WITHOUT DESIGNS
-                          // -------------------------------
+                          // -----------------------------------------
+                          // Products WITHOUT designs
+                          // One row = one product + color.
+                          // The size is selected from a dropdown.
+                          // -----------------------------------------
 
-                          return variant.sizes.map((size) => (
-                            <TableRow
-                              key={`${inventory._id}-${variant.color}-${size.size}`}
-                            >
+                          const sizes = variant.sizes || [];
+
+                          if (sizes.length === 0) return null;
+
+                          const rowKey = `${inventory._id}-${variant.color}-no-design`;
+
+                          const selectedSizeValue =
+                            selectedInventorySizes[rowKey] || sizes[0].size;
+
+                          const selectedSize =
+                            sizes.find(
+                              (size) => size.size === selectedSizeValue,
+                            ) || sizes[0];
+
+                          const isOutOfStock = selectedSize.quantity === 0;
+                          const isLowStock =
+                            selectedSize.quantity <= selectedSize.reorderLevel;
+
+                          return (
+                            <TableRow key={rowKey}>
                               <TableCell>{inventory.productId}</TableCell>
 
                               <TableCell>
-                                {inventory.warehouseId?.name}
+                                {inventory.warehouseId?.name || "-"}
                               </TableCell>
 
                               <TableCell>{variant.color}</TableCell>
 
                               <TableCell>-</TableCell>
 
-                              <TableCell>{size.size}</TableCell>
+                              <TableCell>
+                                <Select
+                                  value={selectedSize.size}
+                                  onValueChange={(value) =>
+                                    setSelectedInventorySizes((prev) => ({
+                                      ...prev,
+                                      [rowKey]: value,
+                                    }))
+                                  }
+                                >
+                                  <SelectTrigger className="w-24">
+                                    <SelectValue />
+                                  </SelectTrigger>
 
-                              <TableCell>{size.quantity}</TableCell>
+                                  <SelectContent>
+                                    {sizes.map((size) => (
+                                      <SelectItem
+                                        key={size.size}
+                                        value={size.size}
+                                      >
+                                        {size.size}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </TableCell>
 
-                              <TableCell>{size.reorderLevel}</TableCell>
+                              <TableCell>{selectedSize.quantity}</TableCell>
 
-                              <TableCell>{size.reorderQuantity}</TableCell>
+                              <TableCell>{selectedSize.reorderLevel}</TableCell>
+
+                              <TableCell>
+                                {selectedSize.reorderQuantity}
+                              </TableCell>
 
                               <TableCell>
                                 <Badge
                                   className={
-                                    size.quantity === 0
+                                    isOutOfStock
                                       ? "bg-red-100 text-red-700 hover:bg-red-100"
-                                      : size.quantity <= size.reorderLevel
+                                      : isLowStock
                                         ? "bg-orange-100 text-orange-700 hover:bg-orange-100"
                                         : "bg-green-100 text-green-700 hover:bg-green-100"
                                   }
                                 >
-                                  {size.quantity === 0
+                                  {isOutOfStock
                                     ? "Out of Stock"
-                                    : size.quantity <= size.reorderLevel
+                                    : isLowStock
                                       ? "Low Stock"
                                       : "In Stock"}
                                 </Badge>
                               </TableCell>
 
-                              <TableCell>
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() =>
-                                    editInventory(
-                                      inventory,
-                                      variant.color,
-                                      null,
-                                      size,
-                                      size.size,
-                                    )
-                                  }
-                                >
-                                  Edit
-                                </Button>
-                              </TableCell>
+                              {(currentUser?.role === "admin" ||
+                                currentUser?.role === "inventory_manager") && (
+                                <TableCell>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() =>
+                                      editInventory(
+                                        inventory,
+                                        variant.color,
+                                        null,
+                                        selectedSize,
+                                        selectedSize.size,
+                                      )
+                                    }
+                                  >
+                                    Edit
+                                  </Button>
+                                </TableCell>
+                              )}
                             </TableRow>
-                          ));
+                          );
                         })}
                       </React.Fragment>
                     ))}

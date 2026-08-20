@@ -2474,40 +2474,34 @@ export async function GET(request, { params }) {
     // ----- ACTIVITY LOGS -----
 
     if (routePath === "activity-logs/list") {
-  checkRole(user, ["admin"]);
+      checkRole(user, ["admin"]);
 
-  const limit = Math.min(
-    parseInt(searchParams.get("limit")) || 20,
-    100,
-  );
+      const limit = Math.min(parseInt(searchParams.get("limit")) || 20, 100);
 
-  const page = Math.max(
-    parseInt(searchParams.get("page")) || 1,
-    1,
-  );
+      const page = Math.max(parseInt(searchParams.get("page")) || 1, 1);
 
-  const skip = (page - 1) * limit;
+      const skip = (page - 1) * limit;
 
-  // Fetch the current page and total count in parallel.
-  const [logs, total] = await Promise.all([
-    IMSActivityLog.find()
-      .populate("userId", "name email")
-      .sort({ timestamp: -1 })
-      .skip(skip)
-      .limit(limit)
-      .lean(),
+      // Fetch the current page and total count in parallel.
+      const [logs, total] = await Promise.all([
+        IMSActivityLog.find()
+          .populate("userId", "name email")
+          .sort({ timestamp: -1 })
+          .skip(skip)
+          .limit(limit)
+          .lean(),
 
-    IMSActivityLog.countDocuments(),
-  ]);
+        IMSActivityLog.countDocuments(),
+      ]);
 
-  return Response.json({
-    logs,
-    total,
-    page,
-    limit,
-    totalPages: Math.ceil(total / limit),
-  });
-}
+      return Response.json({
+        logs,
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      });
+    }
 
     // ----- CATEGORIES -----
 
