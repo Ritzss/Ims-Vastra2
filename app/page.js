@@ -211,9 +211,10 @@ export default function VastraDrobeIMS() {
   const [inventoryFilter, setInventoryFilter] = useState("all");
   const [selectedWarehouse, setSelectedWarehouse] = useState("");
   const [showEditInventoryDialog, setShowEditInventoryDialog] = useState(false);
-  const [selectedInventorySizes, setSelectedInventorySizes] = useState({});
+  // const [selectedInventorySizes, setSelectedInventorySizes] = useState({});
+  const [inventorySelections, setInventorySelections] = useState({});
   const [inventoryPage, setInventoryPage] = useState(1);
-  const [inventoryLimit] = useState(20);
+  const [inventoryLimit] = useState(10);
   const [inventoryTotal, setInventoryTotal] = useState(0);
   const [editInventoryForm, setEditInventoryForm] = useState({
     inventoryId: "",
@@ -2388,244 +2389,288 @@ export default function VastraDrobeIMS() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredInventory.map((inventory) => (
-                      <React.Fragment key={inventory._id}>
-                        {inventory.variants.map((variant) => {
-                          // -----------------------------------------
-                          // Products WITH designs
-                          // One row = one product + color + design.
-                          // The size is selected from a dropdown.
-                          // -----------------------------------------
-                          if (variant.designs && variant.designs.length > 0) {
-                            return variant.designs.map((design) => {
-                              const sizes = design.sizes || [];
+  {filteredInventory.map((inventory) => {
+    const variants = inventory.variants || [];
 
-                              if (sizes.length === 0) return null;
+    if (variants.length === 0) return null;
 
-                              const rowKey = `${inventory._id}-${variant.color}-${design.design}`;
+    const inventoryKey = inventory._id;
 
-                              // Use the previously selected size, or default to the first size.
-                              const selectedSizeValue =
-                                selectedInventorySizes[rowKey] || sizes[0].size;
+    const currentSelection = inventorySelections[inventoryKey];
 
-                              const selectedSize =
-                                sizes.find(
-                                  (size) => size.size === selectedSizeValue,
-                                ) || sizes[0];
+    // Default to the first available color.
+    const selectedColor =
+      currentSelection?.color || variants[0].color;
 
-                              const isOutOfStock = selectedSize.quantity === 0;
-                              const isLowStock =
-                                selectedSize.quantity <=
-                                selectedSize.reorderLevel;
+    const selectedVariant =
+      variants.find(
+        (variant) =>
+          variant.color.toLowerCase() ===
+          selectedColor.toLowerCase(),
+      ) || variants[0];
 
-                              return (
-                                <TableRow key={rowKey}>
-                                  <TableCell>{inventory.productId}</TableCell>
+    const hasDesigns =
+      selectedVariant.designs &&
+      selectedVariant.designs.length > 0;
 
-                                  <TableCell>
-                                    {inventory.warehouseId?.name || "-"}
-                                  </TableCell>
+    // -----------------------------------------
+    // Determine available designs
+    // -----------------------------------------
 
-                                  <TableCell>{variant.color}</TableCell>
+    const designs = hasDesigns
+      ? selectedVariant.designs
+      : [];
 
-                                  <TableCell>{design.design}</TableCell>
+    const selectedDesign =
+      hasDesigns
+        ? currentSelection?.design ||
+          designs[0]?.design
+        : null;
 
-                                  <TableCell>
-                                    <Select
-                                      value={selectedSize.size}
-                                      onValueChange={(value) =>
-                                        setSelectedInventorySizes((prev) => ({
-                                          ...prev,
-                                          [rowKey]: value,
-                                        }))
-                                      }
-                                    >
-                                      <SelectTrigger className="w-24">
-                                        <SelectValue />
-                                      </SelectTrigger>
+    const selectedDesignNode = hasDesigns
+      ? designs.find(
+          (design) =>
+            design.design.toLowerCase() ===
+            selectedDesign.toLowerCase(),
+        )
+      : null;
 
-                                      <SelectContent>
-                                        {sizes.map((size) => (
-                                          <SelectItem
-                                            key={size.size}
-                                            value={size.size}
-                                          >
-                                            {size.size}
-                                          </SelectItem>
-                                        ))}
-                                      </SelectContent>
-                                    </Select>
-                                  </TableCell>
+    // -----------------------------------------
+    // Determine available sizes
+    // -----------------------------------------
 
-                                  <TableCell>{selectedSize.quantity}</TableCell>
+    const sizes = hasDesigns
+      ? selectedDesignNode?.sizes || []
+      : selectedVariant.sizes || [];
 
-                                  <TableCell>
-                                    {selectedSize.reorderLevel}
-                                  </TableCell>
+    const selectedSize =
+      currentSelection?.size || sizes[0]?.size;
 
-                                  <TableCell>
-                                    {selectedSize.reorderQuantity}
-                                  </TableCell>
+    const selectedSizeNode =
+      sizes.find(
+        (size) =>
+          size.size.toLowerCase() ===
+          selectedSize?.toLowerCase(),
+      ) || sizes[0];
 
-                                  <TableCell>
-                                    <Badge
-                                      className={
-                                        isOutOfStock
-                                          ? "bg-red-100 text-red-700 hover:bg-red-100"
-                                          : isLowStock
-                                            ? "bg-orange-100 text-orange-700 hover:bg-orange-100"
-                                            : "bg-green-100 text-green-700 hover:bg-green-100"
-                                      }
-                                    >
-                                      {isOutOfStock
-                                        ? "Out of Stock"
-                                        : isLowStock
-                                          ? "Low Stock"
-                                          : "In Stock"}
-                                    </Badge>
-                                  </TableCell>
+    if (!selectedSizeNode) return null;
 
-                                  {(currentUser?.role === "admin" ||
-                                    currentUser?.role ===
-                                      "inventory_manager") && (
-                                    <TableCell>
-                                      <Button
-                                        size="sm"
-                                        variant="outline"
-                                        onClick={() =>
-                                          editInventory(
-                                            inventory,
-                                            variant.color,
-                                            design.design,
-                                            selectedSize,
-                                            selectedSize.size,
-                                          )
-                                        }
-                                      >
-                                        Edit
-                                      </Button>
-                                    </TableCell>
-                                  )}
-                                </TableRow>
-                              );
-                            });
-                          }
+    const isOutOfStock =
+      selectedSizeNode.quantity === 0;
 
-                          // -----------------------------------------
-                          // Products WITHOUT designs
-                          // One row = one product + color.
-                          // The size is selected from a dropdown.
-                          // -----------------------------------------
+    const isLowStock =
+      selectedSizeNode.quantity <=
+      selectedSizeNode.reorderLevel;
 
-                          const sizes = variant.sizes || [];
+    // -----------------------------------------
+    // Update selection while keeping
+    // dependent values valid.
+    // -----------------------------------------
 
-                          if (sizes.length === 0) return null;
+    const updateSelection = (changes) => {
+      setInventorySelections((prev) => ({
+        ...prev,
+        [inventoryKey]: {
+          color: selectedColor,
+          design: selectedDesign,
+          size: selectedSize,
+          ...changes,
+        },
+      }));
+    };
 
-                          const rowKey = `${inventory._id}-${variant.color}-no-design`;
+    return (
+      <TableRow key={inventoryKey}>
+        {/* Product */}
+        <TableCell>
+          {inventory.productId}
+        </TableCell>
 
-                          const selectedSizeValue =
-                            selectedInventorySizes[rowKey] || sizes[0].size;
+        {/* Warehouse */}
+        <TableCell>
+          {inventory.warehouseId?.name || "-"}
+        </TableCell>
 
-                          const selectedSize =
-                            sizes.find(
-                              (size) => size.size === selectedSizeValue,
-                            ) || sizes[0];
+        {/* Color */}
+        <TableCell>
+          <Select
+            value={selectedVariant.color}
+            onValueChange={(value) => {
+              const nextVariant =
+                variants.find(
+                  (variant) =>
+                    variant.color.toLowerCase() ===
+                    value.toLowerCase(),
+                );
 
-                          const isOutOfStock = selectedSize.quantity === 0;
-                          const isLowStock =
-                            selectedSize.quantity <= selectedSize.reorderLevel;
+              const nextHasDesigns =
+                nextVariant?.designs &&
+                nextVariant.designs.length > 0;
 
-                          return (
-                            <TableRow key={rowKey}>
-                              <TableCell>{inventory.productId}</TableCell>
+              const nextDesign =
+                nextHasDesigns
+                  ? nextVariant.designs[0]
+                  : null;
 
-                              <TableCell>
-                                {inventory.warehouseId?.name || "-"}
-                              </TableCell>
+              const nextSizes = nextHasDesigns
+                ? nextDesign?.sizes || []
+                : nextVariant?.sizes || [];
 
-                              <TableCell>{variant.color}</TableCell>
+              updateSelection({
+                color: value,
+                design:
+                  nextDesign?.design || null,
+                size:
+                  nextSizes[0]?.size || null,
+              });
+            }}
+          >
+            <SelectTrigger className="w-32">
+              <SelectValue />
+            </SelectTrigger>
 
-                              <TableCell>-</TableCell>
+            <SelectContent>
+              {variants.map((variant) => (
+                <SelectItem
+                  key={variant.color}
+                  value={variant.color}
+                >
+                  {variant.color}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </TableCell>
 
-                              <TableCell>
-                                <Select
-                                  value={selectedSize.size}
-                                  onValueChange={(value) =>
-                                    setSelectedInventorySizes((prev) => ({
-                                      ...prev,
-                                      [rowKey]: value,
-                                    }))
-                                  }
-                                >
-                                  <SelectTrigger className="w-24">
-                                    <SelectValue />
-                                  </SelectTrigger>
+        {/* Design */}
+        <TableCell>
+          {hasDesigns ? (
+            <Select
+              value={selectedDesign}
+              onValueChange={(value) => {
+                const nextDesign =
+                  designs.find(
+                    (design) =>
+                      design.design.toLowerCase() ===
+                      value.toLowerCase(),
+                  );
 
-                                  <SelectContent>
-                                    {sizes.map((size) => (
-                                      <SelectItem
-                                        key={size.size}
-                                        value={size.size}
-                                      >
-                                        {size.size}
-                                      </SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
-                              </TableCell>
+                updateSelection({
+                  design: value,
+                  size:
+                    nextDesign?.sizes?.[0]?.size || null,
+                });
+              }}
+            >
+              <SelectTrigger className="w-32">
+                <SelectValue />
+              </SelectTrigger>
 
-                              <TableCell>{selectedSize.quantity}</TableCell>
+              <SelectContent>
+                {designs.map((design) => (
+                  <SelectItem
+                    key={design.design}
+                    value={design.design}
+                  >
+                    {design.design}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          ) : (
+            <span className="text-muted-foreground">
+              -
+            </span>
+          )}
+        </TableCell>
 
-                              <TableCell>{selectedSize.reorderLevel}</TableCell>
+        {/* Size */}
+        <TableCell>
+          <Select
+            value={selectedSize}
+            onValueChange={(value) =>
+              updateSelection({
+                size: value,
+              })
+            }
+          >
+            <SelectTrigger className="w-24">
+              <SelectValue />
+            </SelectTrigger>
 
-                              <TableCell>
-                                {selectedSize.reorderQuantity}
-                              </TableCell>
+            <SelectContent>
+              {sizes.map((size) => (
+                <SelectItem
+                  key={size.size}
+                  value={size.size}
+                >
+                  {size.size}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </TableCell>
 
-                              <TableCell>
-                                <Badge
-                                  className={
-                                    isOutOfStock
-                                      ? "bg-red-100 text-red-700 hover:bg-red-100"
-                                      : isLowStock
-                                        ? "bg-orange-100 text-orange-700 hover:bg-orange-100"
-                                        : "bg-green-100 text-green-700 hover:bg-green-100"
-                                  }
-                                >
-                                  {isOutOfStock
-                                    ? "Out of Stock"
-                                    : isLowStock
-                                      ? "Low Stock"
-                                      : "In Stock"}
-                                </Badge>
-                              </TableCell>
+        {/* Quantity */}
+        <TableCell>
+          {selectedSizeNode.quantity}
+        </TableCell>
 
-                              {(currentUser?.role === "admin" ||
-                                currentUser?.role === "inventory_manager") && (
-                                <TableCell>
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={() =>
-                                      editInventory(
-                                        inventory,
-                                        variant.color,
-                                        null,
-                                        selectedSize,
-                                        selectedSize.size,
-                                      )
-                                    }
-                                  >
-                                    Edit
-                                  </Button>
-                                </TableCell>
-                              )}
-                            </TableRow>
-                          );
-                        })}
-                      </React.Fragment>
-                    ))}
-                  </TableBody>
+        {/* Reorder Level */}
+        <TableCell>
+          {selectedSizeNode.reorderLevel}
+        </TableCell>
+
+        {/* Reorder Quantity */}
+        <TableCell>
+          {selectedSizeNode.reorderQuantity}
+        </TableCell>
+
+        {/* Status */}
+        <TableCell>
+          <Badge
+            className={
+              isOutOfStock
+                ? "bg-red-100 text-red-700 hover:bg-red-100"
+                : isLowStock
+                  ? "bg-orange-100 text-orange-700 hover:bg-orange-100"
+                  : "bg-green-100 text-green-700 hover:bg-green-100"
+            }
+          >
+            {isOutOfStock
+              ? "Out of Stock"
+              : isLowStock
+                ? "Low Stock"
+                : "In Stock"}
+          </Badge>
+        </TableCell>
+
+        {/* Actions */}
+        {(currentUser?.role === "admin" ||
+          currentUser?.role ===
+            "inventory_manager") && (
+          <TableCell>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() =>
+                editInventory(
+                  inventory,
+                  selectedVariant.color,
+                  selectedDesign,
+                  selectedSizeNode,
+                  selectedSizeNode.size,
+                )
+              }
+            >
+              Edit
+            </Button>
+          </TableCell>
+        )}
+      </TableRow>
+    );
+  })}
+</TableBody>
                 </Table>
               </CardContent>
             </Card>
