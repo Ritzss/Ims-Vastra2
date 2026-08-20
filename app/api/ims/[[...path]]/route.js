@@ -31,6 +31,7 @@ import {
   getProductInventory,
   getLowStockItems,
   getStockMovements,
+  getStockMovementsCount,
 } from "@/services/inventoryService";
 import bcrypt from "bcryptjs";
 import { runTransaction } from "@/lib/runTransaction";
@@ -2150,29 +2151,53 @@ export async function GET(request, { params }) {
       const productId = searchParams.get("productId");
       const warehouseId = searchParams.get("warehouseId");
       const lowStock = searchParams.get("lowStock") === "true";
-      const limit = Math.min(parseInt(searchParams.get("limit")) || 100, 150);
 
-      // const limit = parseInt(searchParams.get("limit") || "100");
+      // Keep the page size bounded so a large inventory collection
+      // cannot accidentally return an excessive number of documents.
+      const limit = Math.min(parseInt(searchParams.get("limit")) || 20, 150);
+
+      // Ensure page is always at least 1.
+      const page = Math.max(parseInt(searchParams.get("page")) || 1, 1);
+
+      const skip = (page - 1) * limit;
 
       const query = {};
-      if (productId) query.productId = parseInt(productId);
-      if (warehouseId) query.warehouseId = warehouseId;
-      if (lowStock) {
-        query.$expr = { $lte: ["$quantity", "$reorderLevel"] };
+
+      if (productId) {
+        query.productId = parseInt(productId);
       }
 
-      const inventory = await IMSInventory.find(query)
-        .populate("warehouseId")
-        .sort({ createdAt: -1 })
-        .limit(limit)
-        .lean();
+      if (warehouseId) {
+        query.warehouseId = warehouseId;
+      }
 
-      // Enrich with product details
+      if (lowStock) {
+        query.$expr = {
+          $lte: ["$quantity", "$reorderLevel"],
+        };
+      }
+
+      // Fetch the current page and total matching records together.
+      // The count must happen before pagination so the frontend
+      // can calculate the actual number of pages.
+      const [inventory, total] = await Promise.all([
+        IMSInventory.find(query)
+          .populate("warehouseId")
+          .sort({ createdAt: -1 })
+          .skip(skip)
+          .limit(limit)
+          .lean(),
+
+        IMSInventory.countDocuments(query),
+      ]);
+
+      // Enrich only the records on the current page with product details.
       const enrichedInventory = await Promise.all(
         inventory.map(async (inv) => {
           const product = await Product.findOne({
             productId: inv.productId,
           }).lean();
+
           return {
             ...inv,
             product: product || null,
@@ -2182,7 +2207,10 @@ export async function GET(request, { params }) {
 
       return Response.json({
         inventory: enrichedInventory,
-        total: inventory.length,
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
       });
     }
 
@@ -2217,18 +2245,23 @@ export async function GET(request, { params }) {
         startDate: searchParams.get("startDate"),
         endDate: searchParams.get("endDate"),
       };
-      const limit = Math.min(parseInt(searchParams.get("limit")) || 8, 50);
 
-      // const limit = parseInt(searchParams.get("limit") || "50");
+      const limit = Math.min(parseInt(searchParams.get("limit")) || 20, 50);
 
-      const movements = await getStockMovements(filters, limit);
+      const page = Math.max(parseInt(searchParams.get("page")) || 1, 1);
 
-      // Enrich with product details
+      const skip = (page - 1) * limit;
+
+      // Fetch only the records required for the current page.
+      const movements = await getStockMovements(filters, limit, skip);
+
+      // Enrich only the current page.
       const enrichedMovements = await Promise.all(
         movements.map(async (mov) => {
           const product = await Product.findOne({
             productId: mov.productId,
           }).lean();
+
           return {
             ...mov,
             product: product || null,
@@ -2236,9 +2269,16 @@ export async function GET(request, { params }) {
         }),
       );
 
+      // We need the total number of records matching the filters,
+      // not just the number returned for the current page.
+      const total = await getStockMovementsCount(filters);
+
       return Response.json({
         movements: enrichedMovements,
-        total: enrichedMovements.length,
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
       });
     }
 
@@ -2434,20 +2474,40 @@ export async function GET(request, { params }) {
     // ----- ACTIVITY LOGS -----
 
     if (routePath === "activity-logs/list") {
-      checkRole(user, ["admin"]);
+  checkRole(user, ["admin"]);
 
-      const limit = Math.min(parseInt(searchParams.get("limit")) || 8, 100);
+  const limit = Math.min(
+    parseInt(searchParams.get("limit")) || 20,
+    100,
+  );
 
-      // const limit = parseInt(searchParams.get("limit") || "100");
+  const page = Math.max(
+    parseInt(searchParams.get("page")) || 1,
+    1,
+  );
 
-      const logs = await IMSActivityLog.find()
-        .populate("userId", "name email")
-        .sort({ timestamp: -1 })
-        .limit(limit)
-        .lean();
+  const skip = (page - 1) * limit;
 
-      return Response.json({ logs, total: logs.length });
-    }
+  // Fetch the current page and total count in parallel.
+  const [logs, total] = await Promise.all([
+    IMSActivityLog.find()
+      .populate("userId", "name email")
+      .sort({ timestamp: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean(),
+
+    IMSActivityLog.countDocuments(),
+  ]);
+
+  return Response.json({
+    logs,
+    total,
+    page,
+    limit,
+    totalPages: Math.ceil(total / limit),
+  });
+}
 
     // ----- CATEGORIES -----
 
@@ -2503,6 +2563,7 @@ export async function GET(request, { params }) {
         total,
         page,
         limit,
+        totalPages: Math.ceil(total / limit),
       });
     }
   } catch (error) {

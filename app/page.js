@@ -116,6 +116,9 @@ export default function VastraDrobeIMS() {
   const [dashboardStats, setDashboardStats] = useState(null);
 
   // Products state
+  const [productPage, setProductPage] = useState(1);
+  const [productLimit] = useState(10);
+  const [productTotal, setProductTotal] = useState(0);
   const [products, setProducts] = useState([]);
   const [productForm, setProductForm] = useState({
     name: "",
@@ -208,6 +211,9 @@ export default function VastraDrobeIMS() {
   const [inventoryFilter, setInventoryFilter] = useState("all");
   const [selectedWarehouse, setSelectedWarehouse] = useState("");
   const [showEditInventoryDialog, setShowEditInventoryDialog] = useState(false);
+  const [inventoryPage, setInventoryPage] = useState(1);
+  const [inventoryLimit] = useState(10);
+  const [inventoryTotal, setInventoryTotal] = useState(0);
   const [editInventoryForm, setEditInventoryForm] = useState({
     inventoryId: "",
     color: "",
@@ -234,6 +240,9 @@ export default function VastraDrobeIMS() {
 
   // Stock Movements state
   const [stockMovements, setStockMovements] = useState([]);
+  const [movementPage, setMovementPage] = useState(1);
+  const [movementLimit] = useState(20);
+  const [movementTotal, setMovementTotal] = useState(0);
   const [movementForm, setMovementForm] = useState({
     productId: "",
     color: "",
@@ -251,6 +260,9 @@ export default function VastraDrobeIMS() {
 
   // Orders state
   const [orders, setOrders] = useState([]);
+  const [orderPage, setOrderPage] = useState(1);
+  const [orderLimit] = useState(10);
+  const [orderTotal, setOrderTotal] = useState(0);
   const [orderForm, setOrderForm] = useState({
     orderNumber: "",
     items: [],
@@ -272,6 +284,9 @@ export default function VastraDrobeIMS() {
 
   // Activity logs
   const [activityLogs, setActivityLogs] = useState([]);
+  const [logPage, setLogPage] = useState(1);
+  const [logLimit] = useState(10);
+  const [logTotal, setLogTotal] = useState(0);
 
   // Search
   const [searchTerm, setSearchTerm] = useState("");
@@ -378,8 +393,15 @@ export default function VastraDrobeIMS() {
 
   const loadProducts = async () => {
     try {
-      const data = await apiCall(`/products/list?search=${searchTerm}`);
+      const data = await apiCall(
+        `/products/list?page=${productPage}&limit=${productLimit}&search=${encodeURIComponent(searchTerm)}`,
+      );
+
+      console.log("PRODUCT PAGE:", productPage);
+      console.log("PRODUCT DATA:", data.products);
+
       setProducts(data.products);
+      setProductTotal(data.total);
     } catch (error) {
       toast.error("Failed to load products");
     }
@@ -410,7 +432,7 @@ export default function VastraDrobeIMS() {
         ? `&warehouseId=${selectedWarehouse}`
         : "";
       const data = await apiCall(
-        `/inventory/list?lowStock=${lowStock}${warehouseParam}`,
+        `/inventory/list?page=${inventoryPage}&limit=${inventoryLimit}&lowStock=${lowStock}${warehouseParam}`,
       );
       setInventory(data.inventory);
     } catch (error) {
@@ -420,8 +442,12 @@ export default function VastraDrobeIMS() {
 
   const loadStockMovements = async () => {
     try {
-      const data = await apiCall("/stock-movements/list");
+      const data = await apiCall(
+        `/stock-movements/list?page=${movementPage}&limit=${movementLimit}`,
+      );
+
       setStockMovements(data.movements);
+      setMovementTotal(data.total);
     } catch (error) {
       toast.error("Failed to load stock movements");
     }
@@ -429,9 +455,12 @@ export default function VastraDrobeIMS() {
 
   const loadOrders = async () => {
     try {
-      const data = await apiCall("/orders/list");
+      const data = await apiCall(
+        `/orders/list?page=${orderPage}&limit=${orderLimit}`,
+      );
+
       setOrders(data.orders);
-      // console.log(orders);
+      setOrderTotal(data.total);
     } catch (error) {
       toast.error("Failed to load orders");
     }
@@ -447,13 +476,18 @@ export default function VastraDrobeIMS() {
   };
 
   const loadActivityLogs = async () => {
-    try {
-      const data = await apiCall("/activity-logs/list");
-      setActivityLogs(data.logs);
-    } catch (error) {
-      toast.error("Failed to load activity logs");
-    }
-  };
+  try {
+    const data = await apiCall(
+      `/activity-logs/list?page=${logPage}&limit=${logLimit}`,
+    );
+
+    setActivityLogs(data.logs);
+    setLogTotal(data.total);
+  } catch (error) {
+    console.error("ACTIVITY LOG ERROR:", error);
+    toast.error("Failed to load activity logs");
+  }
+};
 
   // CRUD operations
   const createProduct = async (e) => {
@@ -1146,6 +1180,12 @@ export default function VastraDrobeIMS() {
     searchTerm,
     inventoryFilter,
     selectedWarehouse,
+    productPage,
+    inventoryPage,
+    movementPage,
+    orderPage,
+    logPage,
+    // userPage,
   ]);
 
   // Login screen
@@ -1475,7 +1515,10 @@ export default function VastraDrobeIMS() {
                 <Input
                   placeholder="Search products..."
                   value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
+                  onChange={(e) => {
+                    setSearchTerm(e.target.value);
+                    setProductPage(1);
+                  }}
                   className="w-64"
                 />
                 <Button variant="outline" onClick={loadProducts}>
@@ -1987,6 +2030,32 @@ export default function VastraDrobeIMS() {
                 </Table>
               </CardContent>
             </Card>
+
+            <div className="flex items-center justify-between mt-4">
+              <p className="text-sm text-muted-foreground">
+                Page {productPage} of {Math.ceil(productTotal / productLimit)}
+              </p>
+
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  disabled={productPage === 1}
+                  onClick={() => setProductPage((prev) => prev - 1)}
+                >
+                  Previous
+                </Button>
+
+                <Button
+                  variant="outline"
+                  disabled={
+                    productPage >= Math.ceil(productTotal / productLimit)
+                  }
+                  onClick={() => setProductPage((prev) => prev + 1)}
+                >
+                  Next
+                </Button>
+              </div>
+            </div>
           </TabsContent>
 
           {/* Inventory Tab */}
@@ -2493,6 +2562,33 @@ export default function VastraDrobeIMS() {
                 </form>
               </DialogContent>
             </Dialog>
+
+            <div className="flex items-center justify-between mt-4">
+              <p className="text-sm text-muted-foreground">
+                Page {inventoryPage} of{" "}
+                {Math.ceil(inventoryTotal / inventoryLimit)}
+              </p>
+
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  disabled={inventoryPage <= 1}
+                  onClick={() => setInventoryPage((prev) => prev - 1)}
+                >
+                  Previous
+                </Button>
+
+                <Button
+                  variant="outline"
+                  disabled={
+                    inventoryPage >= Math.ceil(inventoryTotal / inventoryLimit)
+                  }
+                  onClick={() => setInventoryPage((prev) => prev + 1)}
+                >
+                  Next
+                </Button>
+              </div>
+            </div>
           </TabsContent>
 
           {/* Stock Movements Tab */}
@@ -2863,6 +2959,33 @@ export default function VastraDrobeIMS() {
                 </Table>
               </CardContent>
             </Card>
+
+            <div className="flex items-center justify-between mt-4">
+              <p className="text-sm text-muted-foreground">
+                Page {movementPage} of{" "}
+                {Math.max(1, Math.ceil(movementTotal / movementLimit))}
+              </p>
+
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  disabled={movementPage <= 1}
+                  onClick={() => setMovementPage((prev) => prev - 1)}
+                >
+                  Previous
+                </Button>
+
+                <Button
+                  variant="outline"
+                  disabled={
+                    movementPage >= Math.ceil(movementTotal / movementLimit)
+                  }
+                  onClick={() => setMovementPage((prev) => prev + 1)}
+                >
+                  Next
+                </Button>
+              </div>
+            </div>
           </TabsContent>
 
           {/* Orders Tab */}
@@ -2918,7 +3041,7 @@ export default function VastraDrobeIMS() {
                                   <p>Qty: {item.quantity}</p>
                                   <p>Size: {item.size}</p>
                                   <p>Color: {item.color}</p>
-                                  {item.design && (<p>Design: {item.design}</p>)}
+                                  {item.design && <p>Design: {item.design}</p>}
                                   <p>Name: {item.name}</p>
                                   <p>Price: ₹{item.price}</p>
                                 </div>
@@ -3243,6 +3366,31 @@ export default function VastraDrobeIMS() {
                 )}
               </DialogContent>
             </Dialog>
+
+            <div className="flex items-center justify-between mt-4">
+              <p className="text-sm text-muted-foreground">
+                Page {orderPage} of{" "}
+                {Math.max(1, Math.ceil(orderTotal / orderLimit))}
+              </p>
+
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  disabled={orderPage <= 1}
+                  onClick={() => setOrderPage((prev) => prev - 1)}
+                >
+                  Previous
+                </Button>
+
+                <Button
+                  variant="outline"
+                  disabled={orderPage >= Math.ceil(orderTotal / orderLimit)}
+                  onClick={() => setOrderPage((prev) => prev + 1)}
+                >
+                  Next
+                </Button>
+              </div>
+            </div>
           </TabsContent>
 
           {/* Warehouses Tab */}
@@ -3592,6 +3740,30 @@ export default function VastraDrobeIMS() {
                   </Table>
                 </CardContent>
               </Card>
+              <div className="flex items-center justify-between mt-4">
+                <p className="text-sm text-muted-foreground">
+                  Page {logPage} of{" "}
+                  {Math.max(1, Math.ceil(logTotal / logLimit))}
+                </p>
+
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    disabled={logPage <= 1}
+                    onClick={() => setLogPage((prev) => prev - 1)}
+                  >
+                    Previous
+                  </Button>
+
+                  <Button
+                    variant="outline"
+                    disabled={logPage >= Math.ceil(logTotal / logLimit)}
+                    onClick={() => setLogPage((prev) => prev + 1)}
+                  >
+                    Next
+                  </Button>
+                </div>
+              </div>
             </TabsContent>
           )}
         </Tabs>

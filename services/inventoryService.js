@@ -439,7 +439,10 @@ export async function getLowStockItems() {
 }
 
 // Get stock movements with filters
-export async function getStockMovements(filters = {}, limit = 50) {
+// Build the MongoDB query from the movement filters.
+// Keeping this in one place ensures the list and count queries
+// always use exactly the same filters.
+function buildStockMovementQuery(filters = {}) {
   const query = {};
 
   if (filters.productId) query.productId = filters.productId;
@@ -461,13 +464,34 @@ export async function getStockMovements(filters = {}, limit = 50) {
     };
   }
 
-  return await IMSStockMovement.find(query)
+  return query;
+}
+
+// Get paginated stock movements with filters.
+export async function getStockMovements(
+  filters = {},
+  limit = 50,
+  skip = 0,
+) {
+  const query = buildStockMovementQuery(filters);
+
+  return IMSStockMovement.find(query)
     .populate("fromWarehouseId")
     .populate("toWarehouseId")
     .populate("performedBy", "name email")
     .sort({ createdAt: -1 })
+    .skip(skip)
     .limit(limit)
     .lean();
+}
+
+// Get total number of movements matching the filters.
+// This intentionally does not apply skip/limit because the frontend
+// needs the complete count to calculate the number of pages.
+export async function getStockMovementsCount(filters = {}) {
+  const query = buildStockMovementQuery(filters);
+
+  return IMSStockMovement.countDocuments(query);
 }
 
 async function getInventoryNode(
