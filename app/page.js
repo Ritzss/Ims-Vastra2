@@ -2713,205 +2713,311 @@ export default function VastraDrobeIMS() {
             Add Inventory
           </Button>
         </DialogTrigger>
-                  <DialogContent className="max-h-[90vh] overflow-y-auto">
-                    <DialogHeader>
-                      <DialogTitle>Add New Inventory</DialogTitle>
-                      <DialogDescription>
-                        Add stock for a product in a warehouse
-                      </DialogDescription>
-                    </DialogHeader>
-                    <form onSubmit={addInventory} className="space-y-4">
-                      <div>
-                        <Label>Product ID</Label>
-                        <Select
-                          value={addInventoryForm.productId}
-                          onValueChange={(val) =>
-                            setAddInventoryForm({
-                              ...addInventoryForm,
-                              productId: parseInt(val),
-                              color: "",
-                              design: "",
-                              size: "",
-                            })
-                          }
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select product" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {products.map((p) => (
-                              <SelectItem
-                                key={p.productId}
-                                value={String(p.productId)}
-                              >
-                                {p.name} (ID: {p.productId})
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
+                  <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+  <DialogHeader>
+    <DialogTitle className="text-xl">
+      Add Inventory
+    </DialogTitle>
 
-                      <div>
-                        <Label>Warehouse</Label>
-                        <Select
-                          value={addInventoryForm.warehouseId}
-                          onValueChange={(val) =>
-                            setAddInventoryForm({
-                              ...addInventoryForm,
-                              warehouseId: val,
-                            })
-                          }
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select warehouse" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {warehouses.map((w) => (
-                              <SelectItem key={w._id} value={w._id}>
-                                {w.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div>
-                        <Label>Color</Label>
+    <DialogDescription>
+      Add stock for a specific product, variant, and warehouse.
+    </DialogDescription>
+  </DialogHeader>
 
-                        <Select
-                          value={addInventoryForm.color}
-                          onValueChange={(value) =>
-                            setAddInventoryForm({
-                              ...addInventoryForm,
-                              color: value,
-                              design: "",
-                              size: "",
-                            })
-                          }
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select Color" />
-                          </SelectTrigger>
+  <form onSubmit={addInventory} className="space-y-6">
+    {/* Product & Warehouse */}
+    <div className="space-y-4">
+      <div>
+        <p className="text-sm font-semibold">
+          Location & Product
+        </p>
 
-                          <SelectContent>
-                            {availableColors.map((variant) => (
-                              <SelectItem
-                                key={variant.color}
-                                value={variant.color}
-                              >
-                                {variant.color}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      {hasDesigns && (
-                        <div>
-                          <Label>Design</Label>
+        <p className="text-xs text-muted-foreground">
+          Choose where this stock will be stored.
+        </p>
+      </div>
 
-                          <Select
-                            value={addInventoryForm.design}
-                            onValueChange={(value) =>
-                              setAddInventoryForm({
-                                ...addInventoryForm,
-                                design: value,
-                                size: "",
-                              })
-                            }
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select Design" />
-                            </SelectTrigger>
+      <div className="grid gap-4 sm:grid-cols-2">
+        {/* Product */}
+        <div className="space-y-2">
+          <Label>Product</Label>
 
-                            <SelectContent>
-                              {availableDesigns.map((design) => (
-                                <SelectItem
-                                  key={design.design}
-                                  value={design.design}
-                                >
-                                  {design.design}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      )}
-                      <div>
-                        <Label>Size</Label>
+          <Select
+            value={String(
+              addInventoryForm.productId || "",
+            )}
+            onValueChange={(val) =>
+              setAddInventoryForm({
+                ...addInventoryForm,
+                productId: parseInt(val),
+                color: "",
+                design: "",
+                size: "",
+              })
+            }
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Select product" />
+            </SelectTrigger>
 
-                        <Select
-                          value={addInventoryForm.size}
-                          onValueChange={(value) =>
-                            setAddInventoryForm({
-                              ...addInventoryForm,
-                              size: value,
-                            })
-                          }
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select Size" />
-                          </SelectTrigger>
+            <SelectContent>
+              {products.map((product) => (
+                <SelectItem
+                  key={product.productId}
+                  value={String(product.productId)}
+                >
+                  {product.name} (#{product.productId})
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
 
-                          <SelectContent>
-                            {availableSizes.map((size) => (
-                              <SelectItem key={size} value={size}>
-                                {size}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div>
-                        <Label>Initial Quantity</Label>
-                        <Input
-                          type="number"
-                          value={addInventoryForm.quantity}
-                          onChange={(e) =>
-                            setAddInventoryForm({
-                              ...addInventoryForm,
-                              quantity: parseInt(e.target.value),
-                            })
-                          }
-                          required
-                          min="0"
-                        />
-                      </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <Label>Reorder Level</Label>
-                          <Input
-                            type="number"
-                            value={addInventoryForm.reorderLevel}
-                            onChange={(e) =>
-                              setAddInventoryForm({
-                                ...addInventoryForm,
-                                reorderLevel: parseInt(e.target.value),
-                              })
-                            }
-                            required
-                            min="0"
-                          />
-                        </div>
-                        <div>
-                          <Label>Reorder Quantity</Label>
-                          <Input
-                            type="number"
-                            value={addInventoryForm.reorderQuantity}
-                            onChange={(e) =>
-                              setAddInventoryForm({
-                                ...addInventoryForm,
-                                reorderQuantity: parseInt(e.target.value),
-                              })
-                            }
-                            required
-                            min="0"
-                          />
-                        </div>
-                      </div>
-                      <Button type="submit" className="w-full">
-                        Add Inventory
-                      </Button>
-                    </form>
-                  </DialogContent>
+        {/* Warehouse */}
+        <div className="space-y-2">
+          <Label>Warehouse</Label>
+
+          <Select
+            value={addInventoryForm.warehouseId}
+            onValueChange={(val) =>
+              setAddInventoryForm({
+                ...addInventoryForm,
+                warehouseId: val,
+              })
+            }
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Select warehouse" />
+            </SelectTrigger>
+
+            <SelectContent>
+              {warehouses.map((warehouse) => (
+                <SelectItem
+                  key={warehouse._id}
+                  value={warehouse._id}
+                >
+                  {warehouse.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+    </div>
+
+    {/* Variant */}
+    <div className="space-y-4">
+      <div>
+        <p className="text-sm font-semibold">
+          Product Variant
+        </p>
+
+        <p className="text-xs text-muted-foreground">
+          Select the color, design, and size.
+        </p>
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        {/* Color */}
+        <div className="space-y-2">
+          <Label>Color</Label>
+
+          <Select
+            value={addInventoryForm.color}
+            onValueChange={(value) =>
+              setAddInventoryForm({
+                ...addInventoryForm,
+                color: value,
+                design: "",
+                size: "",
+              })
+            }
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Select color" />
+            </SelectTrigger>
+
+            <SelectContent>
+              {availableColors.map((variant) => (
+                <SelectItem
+                  key={variant.color}
+                  value={variant.color}
+                >
+                  {variant.color}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Design */}
+        {hasDesigns && (
+          <div className="space-y-2">
+            <Label>Design</Label>
+
+            <Select
+              value={addInventoryForm.design}
+              onValueChange={(value) =>
+                setAddInventoryForm({
+                  ...addInventoryForm,
+                  design: value,
+                  size: "",
+                })
+              }
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select design" />
+              </SelectTrigger>
+
+              <SelectContent>
+                {availableDesigns.map((design) => (
+                  <SelectItem
+                    key={design.design}
+                    value={design.design}
+                  >
+                    {design.design}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+
+        {/* Size */}
+        <div className="space-y-2">
+          <Label>Size</Label>
+
+          <Select
+            value={addInventoryForm.size}
+            onValueChange={(value) =>
+              setAddInventoryForm({
+                ...addInventoryForm,
+                size: value,
+              })
+            }
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Select size" />
+            </SelectTrigger>
+
+            <SelectContent>
+              {availableSizes.map((size) => (
+                <SelectItem
+                  key={size}
+                  value={size}
+                >
+                  {size}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+    </div>
+
+    {/* Stock */}
+    <div className="space-y-4">
+      <div>
+        <p className="text-sm font-semibold">
+          Stock Settings
+        </p>
+
+        <p className="text-xs text-muted-foreground">
+          Set the initial quantity and reorder thresholds.
+        </p>
+      </div>
+
+      {/* Initial Quantity */}
+      <div className="space-y-2">
+        <Label>Initial Quantity</Label>
+
+        <Input
+          type="number"
+          value={addInventoryForm.quantity}
+          onChange={(e) =>
+            setAddInventoryForm({
+              ...addInventoryForm,
+              quantity: parseInt(e.target.value),
+            })
+          }
+          required
+          min="0"
+          placeholder="0"
+        />
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        {/* Reorder Level */}
+        <div className="space-y-2">
+          <Label>Reorder Level</Label>
+
+          <Input
+            type="number"
+            value={addInventoryForm.reorderLevel}
+            onChange={(e) =>
+              setAddInventoryForm({
+                ...addInventoryForm,
+                reorderLevel: parseInt(
+                  e.target.value,
+                ),
+              })
+            }
+            required
+            min="0"
+            placeholder="5"
+          />
+
+          <p className="text-xs text-muted-foreground">
+            Alert when stock reaches this level.
+          </p>
+        </div>
+
+        {/* Reorder Quantity */}
+        <div className="space-y-2">
+          <Label>Reorder Quantity</Label>
+
+          <Input
+            type="number"
+            value={addInventoryForm.reorderQuantity}
+            onChange={(e) =>
+              setAddInventoryForm({
+                ...addInventoryForm,
+                reorderQuantity: parseInt(
+                  e.target.value,
+                ),
+              })
+            }
+            required
+            min="0"
+            placeholder="20"
+          />
+
+          <p className="text-xs text-muted-foreground">
+            Suggested quantity when reordering.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    {/* Submit */}
+    <div className="flex justify-end gap-2 border-t pt-4">
+      <Button
+        type="button"
+        variant="outline"
+        onClick={() =>
+          setShowAddInventoryDialog(false)
+        }
+      >
+        Cancel
+      </Button>
+
+      <Button type="submit">
+        <Plus className="mr-2 h-4 w-4" />
+        Add Inventory
+      </Button>
+    </div>
+  </form>
+</DialogContent>
                 </Dialog>
 
       {/* Refresh */}
@@ -3414,64 +3520,146 @@ export default function VastraDrobeIMS() {
               open={showEditInventoryDialog}
               onOpenChange={setShowEditInventoryDialog}
             >
-              <DialogContent className="max-h-[90vh] overflow-y-auto">
-                <DialogHeader>
-                  <DialogTitle>Edit Inventory</DialogTitle>
-                  <DialogDescription>
-                    Update stock quantities and reorder levels
-                  </DialogDescription>
-                </DialogHeader>
-                <form onSubmit={updateInventory} className="space-y-4">
-                  <div>
-                    <Label>Quantity</Label>
-                    <Input
-                      type="number"
-                      value={editInventoryForm.quantity}
-                      onChange={(e) =>
-                        setEditInventoryForm({
-                          ...editInventoryForm,
-                          quantity: parseInt(e.target.value),
-                        })
-                      }
-                      required
-                      min="0"
-                    />
-                  </div>
-                  <div>
-                    <Label>Reorder Level</Label>
-                    <Input
-                      type="number"
-                      value={editInventoryForm.reorderLevel}
-                      onChange={(e) =>
-                        setEditInventoryForm({
-                          ...editInventoryForm,
-                          reorderLevel: parseInt(e.target.value),
-                        })
-                      }
-                      required
-                      min="0"
-                    />
-                  </div>
-                  <div>
-                    <Label>Reorder Quantity</Label>
-                    <Input
-                      type="number"
-                      value={editInventoryForm.reorderQuantity}
-                      onChange={(e) =>
-                        setEditInventoryForm({
-                          ...editInventoryForm,
-                          reorderQuantity: parseInt(e.target.value),
-                        })
-                      }
-                      required
-                      min="0"
-                    />
-                  </div>
-                  <Button type="submit" className="w-full">
-                    Update Inventory
-                  </Button>
-                </form>
-              </DialogContent>
+              <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+  <DialogHeader>
+    <DialogTitle className="text-xl">
+      Edit Inventory
+    </DialogTitle>
+
+    <DialogDescription>
+      Update stock quantities and reorder settings.
+    </DialogDescription>
+  </DialogHeader>
+
+  <form onSubmit={updateInventory} className="space-y-6">
+    {/* Stock Settings */}
+    <div className="space-y-4">
+      <div>
+        <p className="text-sm font-semibold">
+          Stock Settings
+        </p>
+
+        <p className="text-xs text-muted-foreground">
+          Update the current quantity and reorder thresholds.
+        </p>
+      </div>
+
+      {/* Quantity */}
+      <div className="space-y-2">
+        <Label>Current Quantity</Label>
+
+        <Input
+          type="number"
+          value={editInventoryForm.quantity}
+          onChange={(e) =>
+            setEditInventoryForm({
+              ...editInventoryForm,
+              quantity: parseInt(e.target.value),
+            })
+          }
+          required
+          min="0"
+        />
+
+        <p className="text-xs text-muted-foreground">
+          Current available units.
+        </p>
+      </div>
+
+      {/* Reorder Settings */}
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="space-y-2">
+          <Label>Reorder Level</Label>
+
+          <Input
+            type="number"
+            value={editInventoryForm.reorderLevel}
+            onChange={(e) =>
+              setEditInventoryForm({
+                ...editInventoryForm,
+                reorderLevel: parseInt(e.target.value),
+              })
+            }
+            required
+            min="0"
+          />
+
+          <p className="text-xs text-muted-foreground">
+            Low-stock threshold.
+          </p>
+        </div>
+
+        <div className="space-y-2">
+          <Label>Reorder Quantity</Label>
+
+          <Input
+            type="number"
+            value={editInventoryForm.reorderQuantity}
+            onChange={(e) =>
+              setEditInventoryForm({
+                ...editInventoryForm,
+                reorderQuantity: parseInt(e.target.value),
+              })
+            }
+            required
+            min="0"
+          />
+
+          <p className="text-xs text-muted-foreground">
+            Suggested replenishment amount.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    {/* Live Stock Status */}
+    <div className="rounded-xl border p-4">
+      <div className="flex items-center justify-between gap-4">
+        <div>
+          <p className="text-sm font-medium">
+            Stock Status
+          </p>
+
+          <p className="text-xs text-muted-foreground">
+            Based on the values above.
+          </p>
+        </div>
+
+        {Number(editInventoryForm.quantity) === 0 ? (
+          <Badge className="border-red-200 bg-red-100 text-red-700 hover:bg-red-100 dark:border-red-900 dark:bg-red-950/40 dark:text-red-400">
+            Out of Stock
+          </Badge>
+        ) : Number(editInventoryForm.quantity) <=
+          Number(editInventoryForm.reorderLevel) ? (
+          <Badge className="border-orange-200 bg-orange-100 text-orange-700 hover:bg-orange-100 dark:border-orange-900 dark:bg-orange-950/40 dark:text-orange-400">
+            Low Stock
+          </Badge>
+        ) : (
+          <Badge className="border-green-200 bg-green-100 text-green-700 hover:bg-green-100 dark:border-green-900 dark:bg-green-950/40 dark:text-green-400">
+            In Stock
+          </Badge>
+        )}
+      </div>
+    </div>
+
+    {/* Actions */}
+    <div className="flex justify-end gap-2 border-t pt-4">
+      <Button
+        type="button"
+        variant="outline"
+        onClick={() =>
+          setShowEditInventoryDialog(false)
+        }
+      >
+        Cancel
+      </Button>
+
+      <Button type="submit">
+        Update Inventory
+      </Button>
+    </div>
+  </form>
+</DialogContent>
             </Dialog>
 
             {inventoryTotal > 0 && (
