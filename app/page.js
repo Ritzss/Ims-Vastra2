@@ -16,6 +16,8 @@ import {
   ArrowUpFromLine,
   Boxes,
   ChevronDown,
+  CircleCheck,
+  CircleX,
   Download,
   FileText,
   MapPin,
@@ -24,7 +26,10 @@ import {
   Phone,
   RefreshCcw,
   RefreshCw,
+  ShieldCheck,
   ShoppingBag,
+  Trash2,
+  UserCheck,
   X,
 } from "lucide-react";
 import {
@@ -38,6 +43,9 @@ import {
   RotateCcw,
   IndianRupee,
   Mail,
+  Activity,
+  FileClock,
+  Files,
   History,
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -5960,139 +5968,424 @@ const [orderPaymentFilter, setOrderPaymentFilter] =
           </TabsContent>
 
           {/* Users Tab */}
-          {currentUser?.role === "admin" && (
-            <TabsContent value="users" className="space-y-4">
-              <div className="flex justify-between">
-                <h2 className="text-xl font-semibold">Users</h2>
-                <Button onClick={() => setAddUserOpen(true)}>
-                  <Dialog open={addUserOpen} onOpenChange={setAddUserOpen}>
-                    <DialogContent className="max-h-[90vh] overflow-y-auto">
-                      <DialogHeader>
-                        <DialogTitle>Add New User</DialogTitle>
-                        <DialogDescription>
-                          Create a new system user
-                        </DialogDescription>
-                      </DialogHeader>
+{currentUser?.role === "admin" && (
+  <TabsContent value="users" className="space-y-6">
+    {/* Header */}
+    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div>
+        <h2 className="text-2xl font-bold tracking-tight">
+          Users
+        </h2>
 
-                      <div className="space-y-3">
-                        <Input
-                          placeholder="Full name"
-                          value={newUser.name}
-                          onChange={(e) =>
-                            setNewUser({ ...newUser, name: e.target.value })
-                          }
-                        />
+        <p className="text-sm text-muted-foreground">
+          Manage system users, roles, and access
+        </p>
+      </div>
 
-                        <Input
-                          type="email"
-                          placeholder="Email"
-                          value={newUser.email}
-                          onChange={(e) =>
-                            setNewUser({ ...newUser, email: e.target.value })
-                          }
-                        />
+      <Dialog
+        open={addUserOpen}
+        onOpenChange={setAddUserOpen}
+      >
+        <DialogTrigger asChild>
+          <Button>
+            <Plus className="mr-2 h-4 w-4" />
+            Add User
+          </Button>
+        </DialogTrigger>
 
-                        <Input
-                          type="password"
-                          placeholder="Temporary password"
-                          value={newUser.password}
-                          onChange={(e) =>
-                            setNewUser({ ...newUser, password: e.target.value })
-                          }
-                        />
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Add New User</DialogTitle>
 
-                        <select
-                          className="w-full border rounded-md p-2"
-                          value={newUser.role}
-                          onChange={(e) =>
-                            setNewUser({ ...newUser, role: e.target.value })
-                          }
-                        >
-                          <option value="inventory_manager">
-                            Inventory Manager
-                          </option>
-                          <option value="store_manager">Store Manager</option>
-                          <option value="admin">Admin</option>
-                        </select>
+            <DialogDescription>
+              Create a new system user and assign their role.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-5">
+            {/* Basic Information */}
+            <div className="space-y-4">
+              <div>
+                <p className="text-sm font-semibold">
+                  User Information
+                </p>
+
+                <p className="text-xs text-muted-foreground">
+                  Enter the user's account details.
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Full Name</Label>
+
+                <Input
+                  placeholder="Enter full name"
+                  value={newUser.name}
+                  onChange={(e) =>
+                    setNewUser({
+                      ...newUser,
+                      name: e.target.value,
+                    })
+                  }
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Email</Label>
+
+                <Input
+                  type="email"
+                  placeholder="user@example.com"
+                  value={newUser.email}
+                  onChange={(e) =>
+                    setNewUser({
+                      ...newUser,
+                      email: e.target.value,
+                    })
+                  }
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Temporary Password</Label>
+
+                <Input
+                  type="password"
+                  placeholder="Enter temporary password"
+                  value={newUser.password}
+                  onChange={(e) =>
+                    setNewUser({
+                      ...newUser,
+                      password: e.target.value,
+                    })
+                  }
+                />
+
+                <p className="text-xs text-muted-foreground">
+                  The user should change this after their first login.
+                </p>
+              </div>
+            </div>
+
+            {/* Role */}
+            <div className="space-y-4 border-t pt-5">
+              <div>
+                <p className="text-sm font-semibold">
+                  Access Role
+                </p>
+
+                <p className="text-xs text-muted-foreground">
+                  Determine what this user can access.
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Role</Label>
+
+                <Select
+                  value={newUser.role}
+                  onValueChange={(value) =>
+                    setNewUser({
+                      ...newUser,
+                      role: value,
+                    })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select role" />
+                  </SelectTrigger>
+
+                  <SelectContent>
+                    <SelectItem value="inventory_manager">
+                      Inventory Manager
+                    </SelectItem>
+
+                    <SelectItem value="store_manager">
+                      Store Manager
+                    </SelectItem>
+
+                    <SelectItem value="admin">
+                      Admin
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setAddUserOpen(false)}
+            >
+              Cancel
+            </Button>
+
+            <Button
+              disabled={addingUser}
+              onClick={createUser}
+            >
+              {addingUser ? (
+                "Creating..."
+              ) : (
+                <>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Create User
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+
+    {/* User Summary */}
+    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <Card>
+        <CardContent className="flex items-center justify-between p-5">
+          <div>
+            <p className="text-sm text-muted-foreground">
+              Total Users
+            </p>
+
+            <p className="mt-1 text-2xl font-bold">
+              {users.length}
+            </p>
+          </div>
+
+          <div className="rounded-lg bg-blue-100 p-3 dark:bg-blue-950/40">
+            <Users className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent className="flex items-center justify-between p-5">
+          <div>
+            <p className="text-sm text-muted-foreground">
+              Active Users
+            </p>
+
+            <p className="mt-1 text-2xl font-bold">
+              {
+                users.filter(
+                  (user) => user.isActive,
+                ).length
+              }
+            </p>
+          </div>
+
+          <div className="rounded-lg bg-green-100 p-3 dark:bg-green-950/40">
+            <UserCheck className="h-5 w-5 text-green-600 dark:text-green-400" />
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent className="flex items-center justify-between p-5">
+          <div>
+            <p className="text-sm text-muted-foreground">
+              Admins
+            </p>
+
+            <p className="mt-1 text-2xl font-bold">
+              {
+                users.filter(
+                  (user) => user.role === "admin",
+                ).length
+              }
+            </p>
+          </div>
+
+          <div className="rounded-lg bg-purple-100 p-3 dark:bg-purple-950/40">
+            <ShieldCheck className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+
+    {/* User Table */}
+    <Card className="border-border/60 shadow-sm">
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle>User Management</CardTitle>
+
+            <CardDescription>
+              Manage system users and their access roles
+            </CardDescription>
+          </div>
+
+          <div className="rounded-lg bg-muted p-2.5">
+            <Users className="h-5 w-5 text-muted-foreground" />
+          </div>
+        </div>
+      </CardHeader>
+
+      <CardContent className="p-0">
+        {users.length > 0 ? (
+          <Table>
+            <TableHeader>
+              <TableRow className="bg-muted/40">
+                <TableHead className="font-semibold">
+                  User
+                </TableHead>
+
+                <TableHead className="font-semibold">
+                  Email
+                </TableHead>
+
+                <TableHead className="font-semibold">
+                  Role
+                </TableHead>
+
+                <TableHead className="font-semibold">
+                  Status
+                </TableHead>
+
+                <TableHead className="font-semibold">
+                  Created
+                </TableHead>
+
+                <TableHead className="text-right font-semibold">
+                  Actions
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+
+            <TableBody>
+              {users.map((user) => (
+                <TableRow
+                  key={user._id || user.id}
+                  className="hover:bg-muted/30"
+                >
+                  {/* User */}
+                  <TableCell>
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-semibold">
+                        {user.name
+                          ?.charAt(0)
+                          ?.toUpperCase() || "?"}
                       </div>
 
-                      <DialogFooter>
-                        <Button
-                          variant="secondary"
-                          onClick={() => setAddUserOpen(false)}
-                        >
-                          Cancel
-                        </Button>
+                      <div>
+                        <p className="font-medium">
+                          {user.name}
+                        </p>
 
-                        <Button disabled={addingUser} onClick={createUser}>
-                          {addingUser ? "Creating..." : "Create User"}
-                        </Button>
-                      </DialogFooter>
-                    </DialogContent>
-                  </Dialog>
-                  ADD USER
-                </Button>
-              </div>
-              <Card>
-                <CardHeader>
-                  <CardTitle>User Management</CardTitle>
-                  <CardDescription>
-                    Manage system users and roles
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Name</TableHead>
-                        <TableHead>Email</TableHead>
-                        <TableHead>Role</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Created</TableHead>
-                        <TableHead>Actions</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {users.map((user) => (
-                        <TableRow key={user._id || user.id}>
-                          <TableCell className="font-medium">
-                            {user.name}
-                          </TableCell>
-                          <TableCell>{user.email}</TableCell>
-                          <TableCell>
-                            <Badge>{user.role}</Badge>
-                          </TableCell>
-                          <TableCell>
-                            <Badge
-                              variant={
-                                user.isActive ? "default" : "destructive"
-                              }
-                            >
-                              {user.isActive ? "Active" : "Inactive"}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>
-                            {new Date(user.createdAt).toLocaleDateString()}
-                          </TableCell>
-                          <TableCell>
-                            {user._id !== currentUser?.id && (
-                              <Button
-                                size="sm"
-                                variant="destructive"
-                                onClick={() => deleteUser(user._id)}
-                              >
-                                Delete
-                              </Button>
-                            )}
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </CardContent>
-              </Card>
-            </TabsContent>
-          )}
+                        {user._id === currentUser?.id && (
+                          <p className="text-xs text-muted-foreground">
+                            You
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </TableCell>
+
+                  {/* Email */}
+                  <TableCell>
+                    <span className="text-sm">
+                      {user.email}
+                    </span>
+                  </TableCell>
+
+                  {/* Role */}
+                  <TableCell>
+                    <Badge
+                      variant={
+                        user.role === "admin"
+                          ? "default"
+                          : "secondary"
+                      }
+                      className="capitalize"
+                    >
+                      {user.role.replace("_", " ")}
+                    </Badge>
+                  </TableCell>
+
+                  {/* Status */}
+                  <TableCell>
+                    <Badge
+                      variant={
+                        user.isActive
+                          ? "default"
+                          : "destructive"
+                      }
+                    >
+                      {user.isActive ? (
+                        <>
+                          <CircleCheck className="mr-1 h-3.5 w-3.5" />
+                          Active
+                        </>
+                      ) : (
+                        <>
+                          <CircleX className="mr-1 h-3.5 w-3.5" />
+                          Inactive
+                        </>
+                      )}
+                    </Badge>
+                  </TableCell>
+
+                  {/* Created */}
+                  <TableCell>
+                    <div>
+                      <p className="text-sm">
+                        {new Date(
+                          user.createdAt,
+                        ).toLocaleDateString()}
+                      </p>
+
+                      <p className="text-xs text-muted-foreground">
+                        {new Date(
+                          user.createdAt,
+                        ).toLocaleTimeString([], {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                      </p>
+                    </div>
+                  </TableCell>
+
+                  {/* Actions */}
+                  <TableCell className="text-right">
+                    {user._id !== currentUser?.id && (
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="text-destructive hover:text-destructive"
+                        onClick={() =>
+                          deleteUser(user._id)
+                        }
+                        title="Delete user"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        ) : (
+          <div className="flex min-h-52 flex-col items-center justify-center text-center">
+            <div className="rounded-full bg-muted p-3">
+              <Users className="h-6 w-6 text-muted-foreground" />
+            </div>
+
+            <p className="mt-3 font-medium">
+              No users found
+            </p>
+
+            <p className="mt-1 text-sm text-muted-foreground">
+              Create your first system user to get started.
+            </p>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  </TabsContent>
+)}
 
           {/* Activity Logs Tab */}
           {(currentUser?.role === "admin" ||
