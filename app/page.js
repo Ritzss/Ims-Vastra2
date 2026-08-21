@@ -89,7 +89,6 @@ import {
   AlertTriangle,
   TrendingUp,
   TrendingDown,
-  Activity,
   Edit,
   Pencil,
 } from "lucide-react";
@@ -294,10 +293,8 @@ export default function VastraDrobeIMS() {
   const [orderTotal, setOrderTotal] = useState(0);
   const [openOrderItems, setOpenOrderItems] = useState(null);
   const [orderSearch, setOrderSearch] = useState("");
-const [orderStatusFilter, setOrderStatusFilter] =
-  useState("all");
-const [orderPaymentFilter, setOrderPaymentFilter] =
-  useState("all");
+  const [orderStatusFilter, setOrderStatusFilter] = useState("all");
+  const [orderPaymentFilter, setOrderPaymentFilter] = useState("all");
   const [orderForm, setOrderForm] = useState({
     orderNumber: "",
     items: [],
@@ -536,35 +533,33 @@ const [orderPaymentFilter, setOrderPaymentFilter] =
   };
 
   const loadOrders = async () => {
-  try {
-    const params = new URLSearchParams({
-      page: String(orderPage),
-      limit: String(orderLimit),
-    });
+    try {
+      const params = new URLSearchParams({
+        page: String(orderPage),
+        limit: String(orderLimit),
+      });
 
-    if (orderSearch.trim()) {
-      params.set("search", orderSearch.trim());
+      if (orderSearch.trim()) {
+        params.set("search", orderSearch.trim());
+      }
+
+      if (orderStatusFilter !== "all") {
+        params.set("status", orderStatusFilter);
+      }
+
+      if (orderPaymentFilter !== "all") {
+        params.set("payment", orderPaymentFilter);
+      }
+
+      const data = await apiCall(`/orders/list?${params.toString()}`);
+
+      setOrders(data.orders || []);
+      setOrderTotal(data.total || 0);
+    } catch (error) {
+      console.error("ORDERS ERROR:", error);
+      toast.error("Failed to load orders");
     }
-
-    if (orderStatusFilter !== "all") {
-      params.set("status", orderStatusFilter);
-    }
-
-    if (orderPaymentFilter !== "all") {
-      params.set("payment", orderPaymentFilter);
-    }
-
-    const data = await apiCall(
-      `/orders/list?${params.toString()}`,
-    );
-
-    setOrders(data.orders || []);
-    setOrderTotal(data.total || 0);
-  } catch (error) {
-    console.error("ORDERS ERROR:", error);
-    toast.error("Failed to load orders");
-  }
-};
+  };
 
   const loadUsers = async () => {
     try {
@@ -1269,14 +1264,14 @@ const [orderPaymentFilter, setOrderPaymentFilter] =
   ]);
 
   useEffect(() => {
-  loadOrders();
-}, [
-  orderPage,
-  orderLimit,
-  orderSearch,
-  orderStatusFilter,
-  orderPaymentFilter,
-]);
+    loadOrders();
+  }, [
+    orderPage,
+    orderLimit,
+    orderSearch,
+    orderStatusFilter,
+    orderPaymentFilter,
+  ]);
 
   // Load data when logged in and tab changes
   useEffect(() => {
@@ -1456,24 +1451,54 @@ const [orderPaymentFilter, setOrderPaymentFilter] =
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
-      <header className="border-b bg-card">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-primary">VastraDrobe IMS</h1>
-            <p className="text-sm text-muted-foreground">
-              Inventory Management System
-            </p>
-          </div>
-          <div className="flex items-center gap-4">
-            <div className="text-right">
-              <p className="text-sm font-medium">{currentUser?.name}</p>
-              <p className="text-xs text-muted-foreground">
-                {currentUser?.role}
+      <header className="sticky top-0 z-40 border-b bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80">
+        <div className="container mx-auto flex min-h-16 items-center justify-between gap-4 px-4 py-3">
+          {/* Brand */}
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
+              <Boxes className="h-5 w-5 text-primary" />
+            </div>
+
+            <div>
+              <h1 className="text-lg font-bold tracking-tight sm:text-xl">
+                VastraDrobe IMS
+              </h1>
+
+              <p className="hidden text-xs text-muted-foreground sm:block">
+                Inventory Management System
               </p>
             </div>
-            <Button variant="outline" size="sm" onClick={handleLogout}>
-              <LogOut className="w-4 h-4 mr-2" />
-              Logout
+          </div>
+
+          {/* User */}
+          <div className="flex items-center gap-3">
+            <div className="hidden items-center gap-3 sm:flex">
+              {/* Avatar */}
+              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-muted text-sm font-semibold">
+                {currentUser?.name?.charAt(0)?.toUpperCase() || "U"}
+              </div>
+
+              <div className="text-right">
+                <p className="text-sm font-medium leading-none">
+                  {currentUser?.name || "User"}
+                </p>
+
+                <p className="mt-1 text-xs capitalize text-muted-foreground">
+                  {currentUser?.role?.replace("_", " ")}
+                </p>
+              </div>
+            </div>
+
+            {/* Logout */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleLogout}
+              className="gap-2"
+            >
+              <LogOut className="h-4 w-4" />
+
+              <span className="hidden sm:inline">Logout</span>
             </Button>
           </div>
         </div>
@@ -1482,42 +1507,64 @@ const [orderPaymentFilter, setOrderPaymentFilter] =
       {/* Main Content */}
       <main className="container mx-auto px-4 py-6">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid grid-cols-7 lg:grid-cols-8 mb-6">
-            <TabsTrigger value="dashboard" className="flex items-center gap-2">
-              <BarChart3 className="w-4 h-4" />
-              <span className="hidden sm:inline">Dashboard</span>
+          <TabsList className="mb-6 flex h-auto w-full justify-start md:justify-evenly gap-1 overflow-x-auto rounded-xl border bg-muted/50 p-1">
+            <TabsTrigger
+              value="dashboard"
+              className="shrink-0 gap-2 px-4 py-2.5"
+            >
+              <BarChart3 className="h-4 w-4" />
+              <span>Dashboard</span>
             </TabsTrigger>
-            <TabsTrigger value="products" className="flex items-center gap-2">
-              <Package className="w-4 h-4" />
-              <span className="hidden sm:inline">Products</span>
+
+            <TabsTrigger
+              value="products"
+              className="shrink-0 gap-2 px-4 py-2.5"
+            >
+              <Package className="h-4 w-4" />
+              <span>Products</span>
             </TabsTrigger>
-            <TabsTrigger value="inventory" className="flex items-center gap-2">
-              <Warehouse className="w-4 h-4" />
-              <span className="hidden sm:inline">Inventory</span>
+
+            <TabsTrigger
+              value="inventory"
+              className="shrink-0 gap-2 px-4 py-2.5"
+            >
+              <Warehouse className="h-4 w-4" />
+              <span>Inventory</span>
             </TabsTrigger>
-            <TabsTrigger value="movements" className="flex items-center gap-2">
-              <ArrowLeftRight className="w-4 h-4" />
-              <span className="hidden sm:inline">Movements</span>
+
+            <TabsTrigger
+              value="movements"
+              className="shrink-0 gap-2 px-4 py-2.5"
+            >
+              <ArrowLeftRight className="h-4 w-4" />
+              <span>Movements</span>
             </TabsTrigger>
-            <TabsTrigger value="orders" className="flex items-center gap-2">
-              <ShoppingCart className="w-4 h-4" />
-              <span className="hidden sm:inline">Orders</span>
+
+            <TabsTrigger value="orders" className="shrink-0 gap-2 px-4 py-2.5">
+              <ShoppingCart className="h-4 w-4" />
+              <span>Orders</span>
             </TabsTrigger>
-            <TabsTrigger value="warehouses" className="flex items-center gap-2">
-              <Warehouse className="w-4 h-4" />
-              <span className="hidden sm:inline">Locations</span>
+
+            <TabsTrigger
+              value="warehouses"
+              className="shrink-0 gap-2 px-4 py-2.5"
+            >
+              <Warehouse className="h-4 w-4" />
+              <span>Locations</span>
             </TabsTrigger>
+
             {currentUser?.role === "admin" && (
-              <TabsTrigger value="users" className="flex items-center gap-2">
-                <Users className="w-4 h-4" />
-                <span className="hidden sm:inline">Users</span>
+              <TabsTrigger value="users" className="shrink-0 gap-2 px-4 py-2.5">
+                <Users className="h-4 w-4" />
+                <span>Users</span>
               </TabsTrigger>
             )}
+
             {(currentUser?.role === "admin" ||
               currentUser?.role === "inventory_manager") && (
-              <TabsTrigger value="logs" className="flex items-center gap-2">
-                <Activity className="w-4 h-4" />
-                <span className="hidden sm:inline">Logs</span>
+              <TabsTrigger value="logs" className="shrink-0 gap-2 px-4 py-2.5">
+                <Activity className="h-4 w-4" />
+                <span>Logs</span>
               </TabsTrigger>
             )}
           </TabsList>
@@ -4676,684 +4723,633 @@ const [orderPaymentFilter, setOrderPaymentFilter] =
           {/* Orders Tab */}
           <TabsContent value="orders" className="space-y-4">
             {/* Orders Header */}
-<div className="flex flex-col gap-5">
-  <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-    <div>
-      <h2 className="text-2xl font-bold tracking-tight">
-        Orders
-      </h2>
+            <div className="flex flex-col gap-5">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <h2 className="text-2xl font-bold tracking-tight">Orders</h2>
 
-      <p className="text-sm text-muted-foreground">
-        Manage order fulfillment and customer requests
-      </p>
-    </div>
+                  <p className="text-sm text-muted-foreground">
+                    Manage order fulfillment and customer requests
+                  </p>
+                </div>
 
-    <Button
-      onClick={loadOrders}
-      variant="outline"
-    >
-      <RefreshCw className="mr-2 h-4 w-4" />
-      Refresh
-    </Button>
-  </div>
+                <Button onClick={loadOrders} variant="outline">
+                  <RefreshCw className="mr-2 h-4 w-4" />
+                  Refresh
+                </Button>
+              </div>
 
-  {/* Order Filters */}
-  <div className="flex flex-col gap-3 rounded-xl border bg-muted/20 p-4 md:flex-row md:items-center">
-    {/* Search */}
-    <div className="relative flex-1">
-      <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              {/* Order Filters */}
+              <div className="flex flex-col gap-3 rounded-xl border bg-muted/20 p-4 md:flex-row md:items-center">
+                {/* Search */}
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
 
-      <Input
-  placeholder="Search by order number or customer..."
-  value={orderSearch}
-  onChange={(e) => {
-    setOrderSearch(e.target.value);
-    setOrderPage(1);
-  }}
-  className="pl-9"
-/>
-    </div>
+                  <Input
+                    placeholder="Search by order number or customer..."
+                    value={orderSearch}
+                    onChange={(e) => {
+                      setOrderSearch(e.target.value);
+                      setOrderPage(1);
+                    }}
+                    className="pl-9"
+                  />
+                </div>
 
-    {/* Status */}
-    <Select
-  value={orderStatusFilter}
-  onValueChange={(value) => {
-    setOrderStatusFilter(value);
-    setOrderPage(1);
-  }}
->
-      <SelectTrigger className="w-full md:w-44">
-        <SelectValue placeholder="Order status" />
-      </SelectTrigger>
+                {/* Status */}
+                <Select
+                  value={orderStatusFilter}
+                  onValueChange={(value) => {
+                    setOrderStatusFilter(value);
+                    setOrderPage(1);
+                  }}
+                >
+                  <SelectTrigger className="w-full md:w-44">
+                    <SelectValue placeholder="Order status" />
+                  </SelectTrigger>
 
-      <SelectContent>
-        <SelectItem value="all">
-          All Orders
-        </SelectItem>
+                  <SelectContent>
+                    <SelectItem value="all">All Orders</SelectItem>
 
-        <SelectItem value="pending">
-          Pending
-        </SelectItem>
+                    <SelectItem value="pending">Pending</SelectItem>
 
-        <SelectItem value="packing">
-          Packing
-        </SelectItem>
+                    <SelectItem value="packing">Packing</SelectItem>
 
-        <SelectItem value="shipping">
-          Shipped
-        </SelectItem>
+                    <SelectItem value="shipping">Shipped</SelectItem>
 
-        <SelectItem value="out_for_delivery">
-          Out for Delivery
-        </SelectItem>
+                    <SelectItem value="out_for_delivery">
+                      Out for Delivery
+                    </SelectItem>
 
-        <SelectItem value="delivered">
-          Delivered
-        </SelectItem>
+                    <SelectItem value="delivered">Delivered</SelectItem>
 
-        <SelectItem value="cancelled">
-          Cancelled
-        </SelectItem>
+                    <SelectItem value="cancelled">Cancelled</SelectItem>
 
-        <SelectItem value="returned">
-          Returned
-        </SelectItem>
+                    <SelectItem value="returned">Returned</SelectItem>
 
-        <SelectItem value="refunded">
-          Refunded
-        </SelectItem>
-      </SelectContent>
-    </Select>
+                    <SelectItem value="refunded">Refunded</SelectItem>
+                  </SelectContent>
+                </Select>
 
-    {/* Payment */}
-    <Select
-  value={orderPaymentFilter}
-  onValueChange={(value) => {
-    setOrderPaymentFilter(value);
-    setOrderPage(1);
-  }}
->
-      <SelectTrigger className="w-full md:w-40">
-        <SelectValue placeholder="Payment" />
-      </SelectTrigger>
+                {/* Payment */}
+                <Select
+                  value={orderPaymentFilter}
+                  onValueChange={(value) => {
+                    setOrderPaymentFilter(value);
+                    setOrderPage(1);
+                  }}
+                >
+                  <SelectTrigger className="w-full md:w-40">
+                    <SelectValue placeholder="Payment" />
+                  </SelectTrigger>
 
-      <SelectContent>
-  <SelectItem value="all">
-    All Payments
-  </SelectItem>
+                  <SelectContent>
+                    <SelectItem value="all">All Payments</SelectItem>
 
-  <SelectItem value="COD">
-    Cash on Delivery
-  </SelectItem>
+                    <SelectItem value="COD">Cash on Delivery</SelectItem>
 
-  <SelectItem value="Razorpay">
-    Online Payment
-  </SelectItem>
-</SelectContent>
-    </Select>
-  </div>
-</div>
+                    <SelectItem value="Razorpay">Online Payment</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
 
-           <Card>
-  <CardHeader>
-    <div className="flex items-center justify-between">
-      <div>
-        <CardTitle>Order Management</CardTitle>
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle>Order Management</CardTitle>
 
-        <CardDescription>
-          View orders and manage their fulfillment lifecycle
-        </CardDescription>
-      </div>
+                    <CardDescription>
+                      View orders and manage their fulfillment lifecycle
+                    </CardDescription>
+                  </div>
 
-      <div className="rounded-lg bg-muted p-2.5">
-        <ShoppingBag className="h-5 w-5 text-muted-foreground" />
-      </div>
-    </div>
-  </CardHeader>
+                  <div className="rounded-lg bg-muted p-2.5">
+                    <ShoppingBag className="h-5 w-5 text-muted-foreground" />
+                  </div>
+                </div>
+              </CardHeader>
 
               <CardContent>
                 <Table>
                   <TableHeader>
-  <TableRow className="bg-muted/40">
-    <TableHead className="font-semibold">
-      Order
-    </TableHead>
+                    <TableRow className="bg-muted/40">
+                      <TableHead className="font-semibold">Order</TableHead>
 
-    <TableHead className="font-semibold">
-      Customer
-    </TableHead>
+                      <TableHead className="font-semibold">Customer</TableHead>
 
-    <TableHead className="font-semibold">
-      Items
-    </TableHead>
+                      <TableHead className="font-semibold">Items</TableHead>
 
-    <TableHead className="font-semibold">
-      Delivery
-    </TableHead>
+                      <TableHead className="font-semibold">Delivery</TableHead>
 
-    <TableHead className="font-semibold">
-      Payment
-    </TableHead>
+                      <TableHead className="font-semibold">Payment</TableHead>
 
-    <TableHead className="font-semibold">
-      Status
-    </TableHead>
+                      <TableHead className="font-semibold">Status</TableHead>
 
-    <TableHead className="font-semibold">
-      Created
-    </TableHead>
+                      <TableHead className="font-semibold">Created</TableHead>
 
-    <TableHead className="text-right font-semibold">
-      Actions
-    </TableHead>
-  </TableRow>
-</TableHeader>
+                      <TableHead className="text-right font-semibold">
+                        Actions
+                      </TableHead>
+                    </TableRow>
+                  </TableHeader>
 
                   <TableBody>
                     {orders.length > 0 ? (
-    orders.map((order) => (
-                      <TableRow key={order.id}>
-                        {/* Order */}
-  <TableCell>
-    <div>
-      <p className="font-semibold">
-        #{order.orderNumber}
-      </p>
-
-      <p className="mt-1 font-mono text-xs text-muted-foreground">
-        ID: {order.id}
-      </p>
-    </div>
-  </TableCell>
-
-  {/* Customer */}
-  <TableCell>
-    <div className="flex items-center gap-2">
-      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-semibold">
-        {order.deliveryAddress?.name
-          ?.charAt(0)
-          ?.toUpperCase() || "?"}
-      </div>
-
-      <div className="min-w-0">
-        <p className="truncate text-sm font-medium">
-          {order.deliveryAddress?.name || "—"}
-        </p>
-
-        <p className="truncate text-xs text-muted-foreground">
-          {order.deliveryAddress?.phone || "—"}
-        </p>
-      </div>
-    </div>
-  </TableCell>
-
-  {/* Items */}
-  <TableCell>
-  <div className="relative min-w-[220px]">
-    <div className="flex items-center justify-between gap-2">
-      <div>
-        <p className="text-sm font-medium">
-          {order.items?.length || 0}{" "}
-          {order.items?.length === 1 ? "item" : "items"}
-        </p>
-
-        <p className="text-xs text-muted-foreground">
-          ₹
-          {order.items
-            ?.reduce(
-              (total, item) =>
-                total +
-                Number(item.total || 0),
-              0,
-            )
-            .toLocaleString()}
-        </p>
-      </div>
-
-      <Button
-        type="button"
-        variant="outline"
-        size="sm"
-        className="h-8"
-        onClick={() =>
-          setOpenOrderItems(
-            openOrderItems === order.id
-              ? null
-              : order.id,
-          )
-        }
-      >
-        View
-
-        <ChevronDown
-          className={`ml-1 h-3.5 w-3.5 transition-transform ${
-            openOrderItems === order.id
-              ? "rotate-180"
-              : ""
-          }`}
-        />
-      </Button>
-    </div>
-
-    {/* Items dropdown */}
-    {openOrderItems === order.id && (
-      <div className="absolute right-0 top-full z-[100] mt-2 w-96 rounded-xl border bg-background p-4 shadow-xl">
-        <div className="mb-3 flex items-center justify-between">
-          <div>
-            <p className="text-sm font-semibold">
-              Order Items
-            </p>
-
-            <p className="text-xs text-muted-foreground">
-              {order.items?.length || 0} items
-            </p>
-          </div>
-
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="h-7 w-7"
-            onClick={() =>
-              setOpenOrderItems(null)
-            }
-          >
-            <X className="h-4 w-4" />
-          </Button>
-        </div>
-
-        <div className="max-h-80 space-y-3 overflow-y-auto">
-          {order.items?.map((item, index) => (
-            <div
-              key={`${item.productId}-${item.size}-${item.color}-${index}`}
-              className="rounded-lg border p-3"
-            >
-              <div className="flex gap-3">
-                {item.image?.[0] && (
-                  <img
-                    src={item.image[0]}
-                    alt={item.name}
-                    className="h-14 w-14 shrink-0 rounded-md object-cover"
-                  />
-                )}
-
-                <div className="min-w-0 flex-1">
-                  <p className="break-words text-sm font-semibold">
-                    {item.name}
-                  </p>
-
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    Product ID: #{item.productId}
-                  </p>
-
-                  {item.sku && (
-                    <p className="text-xs text-muted-foreground">
-                      SKU: {item.sku}
-                    </p>
-                  )}
-                </div>
-
-                <div className="shrink-0 text-right">
-                  <p className="text-sm font-semibold">
-                    ₹{item.total?.toLocaleString()}
-                  </p>
-
-                  <p className="text-xs text-muted-foreground">
-                    Qty: {item.quantity}
-                  </p>
-                </div>
-              </div>
-
-              <div className="mt-3 grid grid-cols-3 gap-2">
-                <div className="rounded-md bg-muted/40 p-2">
-                  <p className="text-[11px] text-muted-foreground">
-                    Color
-                  </p>
-
-                  <p className="text-xs font-medium">
-                    {item.color || "—"}
-                  </p>
-                </div>
-
-                <div className="rounded-md bg-muted/40 p-2">
-                  <p className="text-[11px] text-muted-foreground">
-                    Size
-                  </p>
-
-                  <p className="text-xs font-medium">
-                    {item.size || "—"}
-                  </p>
-                </div>
-
-                <div className="rounded-md bg-muted/40 p-2">
-                  <p className="text-[11px] text-muted-foreground">
-                    Design
-                  </p>
-
-                  <p className="truncate text-xs font-medium">
-                    {item.design || "—"}
-                  </p>
-                </div>
-              </div>
-
-              <div className="mt-3 flex justify-between border-t pt-2 text-xs">
-                <span className="text-muted-foreground">
-                  ₹{item.price?.toLocaleString()} ×{" "}
-                  {item.quantity}
-                </span>
-
-                <span className="font-semibold">
-                  ₹{item.total?.toLocaleString()}
-                </span>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    )}
-  </div>
-</TableCell>
-
-  {/* Delivery */}
- <TableCell>
-  {order.deliveryAddress ? (
-    <div className="min-w-[300px] max-w-[400px]">
-      <p className="whitespace-normal text-sm font-medium leading-5">
-        {order.deliveryAddress.address}
-      </p>
-
-      <p className="text-sm text-muted-foreground">
-        {[
-          order.deliveryAddress.city,
-          order.deliveryAddress.state,
-          order.deliveryAddress.pincode,
-        ]
-          .filter(Boolean)
-          .join(", ")}
-      </p>
-
-      {order.deliveryAddress.phone && (
-        <p className="mt-1 text-xs text-muted-foreground">
-          📞 {order.deliveryAddress.phone}
-        </p>
-      )}
-    </div>
-  ) : (
-    <span className="text-sm text-muted-foreground">
-      —
-    </span>
-  )}
-</TableCell>
-
-  {/* Payment */}
-  <TableCell>
-    <div className="space-y-1">
-      <Badge
-        variant="outline"
-        className="text-xs"
-      >
-        {order.paymentMethod === "Razorpay" ? "Online" : order.paymentMethod}
-      </Badge>
-
-      <p
-        className={`text-xs font-medium ${
-          order.paymentStatus === "Paid"
-            ? "text-green-600 dark:text-green-400"
-            : order.paymentStatus === "Pending"
-              ? "text-yellow-600 dark:text-yellow-400"
-              : "text-muted-foreground"
-        }`}
-      >
-        {order.paymentStatus || "Unknown"}
-      </p>
-    </div>
-  </TableCell>
-
-  {/* Status */}
-  <TableCell>
-    <Badge
-      variant={
-        STATUS_COLORS[order.status] ||
-        "secondary"
-      }
-    >
-      {STATUS_LABELS[order.status] ||
-        order.status}
-    </Badge>
-  </TableCell>
-
-  {/* Created */}
-  <TableCell>
-    <div>
-      <p className="text-sm">
-        {new Date(
-          order.createdAt,
-        ).toLocaleDateString()}
-      </p>
-
-      <p className="text-xs text-muted-foreground">
-        {new Date(
-          order.createdAt,
-        ).toLocaleTimeString([], {
-          hour: "2-digit",
-          minute: "2-digit",
-        })}
-      </p>
-    </div>
-  </TableCell>
-
-                        <TableCell className="text-right">
-                          <DropdownMenu modal={false}>
-                            <DropdownMenuTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-9 w-9 rounded-full hover:bg-muted data-[state=open]:bg-muted"
-                              >
-                                <MoreHorizontal className="h-5 w-5" />
-                              </Button>
-                            </DropdownMenuTrigger>
-
-                            <DropdownMenuContent
-                              align="end"
-                              side="bottom"
-                              sideOffset={8}
-                              collisionPadding={16}
-                              className="w-72 rounded-xl border bg-background p-2 shadow-2xl"
-                            >
-                              <p className="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                                Order Actions
+                      orders.map((order) => (
+                        <TableRow key={order.id}>
+                          {/* Order */}
+                          <TableCell>
+                            <div>
+                              <p className="font-semibold">
+                                #{order.orderNumber}
                               </p>
 
-                              {/* Mark as Packing */}
+                              <p className="mt-1 font-mono text-xs text-muted-foreground">
+                                ID: {order.id}
+                              </p>
+                            </div>
+                          </TableCell>
 
-                              {((order.paymentMethod === "COD" &&
-                                order.status === "pending") ||
-                                (order.paymentMethod !== "COD" &&
-                                  order.paymentStatus === "Paid" &&
-                                  ["pending", "paid"].includes(
-                                    order.status,
-                                  ))) && (
-                                <DropdownMenuItem
+                          {/* Customer */}
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-semibold">
+                                {order.deliveryAddress?.name
+                                  ?.charAt(0)
+                                  ?.toUpperCase() || "?"}
+                              </div>
+
+                              <div className="min-w-0">
+                                <p className="truncate text-sm font-medium">
+                                  {order.deliveryAddress?.name || "—"}
+                                </p>
+
+                                <p className="truncate text-xs text-muted-foreground">
+                                  {order.deliveryAddress?.phone || "—"}
+                                </p>
+                              </div>
+                            </div>
+                          </TableCell>
+
+                          {/* Items */}
+                          <TableCell>
+                            <div className="relative min-w-[220px]">
+                              <div className="flex items-center justify-between gap-2">
+                                <div>
+                                  <p className="text-sm font-medium">
+                                    {order.items?.length || 0}{" "}
+                                    {order.items?.length === 1
+                                      ? "item"
+                                      : "items"}
+                                  </p>
+
+                                  <p className="text-xs text-muted-foreground">
+                                    ₹
+                                    {order.items
+                                      ?.reduce(
+                                        (total, item) =>
+                                          total + Number(item.total || 0),
+                                        0,
+                                      )
+                                      .toLocaleString()}
+                                  </p>
+                                </div>
+
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-8"
                                   onClick={() =>
-                                    updateOrderStatus(order.id, "packing")
-                                  }
-                                  className="gap-3 rounded-lg"
-                                >
-                                  <Package className="h-4 w-4 text-orange-500" />
-                                  <span>Mark as Packing</span>
-                                </DropdownMenuItem>
-                              )}
-
-                              {/* Mark as Shipped */}
-
-                              {order.status === "packing" && (
-                                <DropdownMenuItem
-                                  onClick={() =>
-                                    updateOrderStatus(order.id, "shipping")
-                                  }
-                                  className="gap-3 rounded-lg"
-                                >
-                                  <Truck className="h-4 w-4 text-blue-500" />
-                                  <span>Mark as Shipped</span>
-                                </DropdownMenuItem>
-                              )}
-
-                              {/* Out for Delivery */}
-
-                              {order.status === "shipping" && (
-                                <DropdownMenuItem
-                                  onClick={() =>
-                                    updateOrderStatus(
-                                      order.id,
-                                      "out_for_delivery",
+                                    setOpenOrderItems(
+                                      openOrderItems === order.id
+                                        ? null
+                                        : order.id,
                                     )
                                   }
-                                  className="gap-3 rounded-lg"
                                 >
-                                  <Bike className="h-4 w-4 text-violet-500" />
-                                  <span>Out for Delivery</span>
-                                </DropdownMenuItem>
+                                  View
+                                  <ChevronDown
+                                    className={`ml-1 h-3.5 w-3.5 transition-transform ${
+                                      openOrderItems === order.id
+                                        ? "rotate-180"
+                                        : ""
+                                    }`}
+                                  />
+                                </Button>
+                              </div>
+
+                              {/* Items dropdown */}
+                              {openOrderItems === order.id && (
+                                <div className="absolute right-0 top-full z-[100] mt-2 w-96 rounded-xl border bg-background p-4 shadow-xl">
+                                  <div className="mb-3 flex items-center justify-between">
+                                    <div>
+                                      <p className="text-sm font-semibold">
+                                        Order Items
+                                      </p>
+
+                                      <p className="text-xs text-muted-foreground">
+                                        {order.items?.length || 0} items
+                                      </p>
+                                    </div>
+
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-7 w-7"
+                                      onClick={() => setOpenOrderItems(null)}
+                                    >
+                                      <X className="h-4 w-4" />
+                                    </Button>
+                                  </div>
+
+                                  <div className="max-h-80 space-y-3 overflow-y-auto">
+                                    {order.items?.map((item, index) => (
+                                      <div
+                                        key={`${item.productId}-${item.size}-${item.color}-${index}`}
+                                        className="rounded-lg border p-3"
+                                      >
+                                        <div className="flex gap-3">
+                                          {item.image?.[0] && (
+                                            <img
+                                              src={item.image[0]}
+                                              alt={item.name}
+                                              className="h-14 w-14 shrink-0 rounded-md object-cover"
+                                            />
+                                          )}
+
+                                          <div className="min-w-0 flex-1">
+                                            <p className="break-words text-sm font-semibold">
+                                              {item.name}
+                                            </p>
+
+                                            <p className="mt-1 text-xs text-muted-foreground">
+                                              Product ID: #{item.productId}
+                                            </p>
+
+                                            {item.sku && (
+                                              <p className="text-xs text-muted-foreground">
+                                                SKU: {item.sku}
+                                              </p>
+                                            )}
+                                          </div>
+
+                                          <div className="shrink-0 text-right">
+                                            <p className="text-sm font-semibold">
+                                              ₹{item.total?.toLocaleString()}
+                                            </p>
+
+                                            <p className="text-xs text-muted-foreground">
+                                              Qty: {item.quantity}
+                                            </p>
+                                          </div>
+                                        </div>
+
+                                        <div className="mt-3 grid grid-cols-3 gap-2">
+                                          <div className="rounded-md bg-muted/40 p-2">
+                                            <p className="text-[11px] text-muted-foreground">
+                                              Color
+                                            </p>
+
+                                            <p className="text-xs font-medium">
+                                              {item.color || "—"}
+                                            </p>
+                                          </div>
+
+                                          <div className="rounded-md bg-muted/40 p-2">
+                                            <p className="text-[11px] text-muted-foreground">
+                                              Size
+                                            </p>
+
+                                            <p className="text-xs font-medium">
+                                              {item.size || "—"}
+                                            </p>
+                                          </div>
+
+                                          <div className="rounded-md bg-muted/40 p-2">
+                                            <p className="text-[11px] text-muted-foreground">
+                                              Design
+                                            </p>
+
+                                            <p className="truncate text-xs font-medium">
+                                              {item.design || "—"}
+                                            </p>
+                                          </div>
+                                        </div>
+
+                                        <div className="mt-3 flex justify-between border-t pt-2 text-xs">
+                                          <span className="text-muted-foreground">
+                                            ₹{item.price?.toLocaleString()} ×{" "}
+                                            {item.quantity}
+                                          </span>
+
+                                          <span className="font-semibold">
+                                            ₹{item.total?.toLocaleString()}
+                                          </span>
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
                               )}
+                            </div>
+                          </TableCell>
 
-                              {/* Delivered */}
+                          {/* Delivery */}
+                          <TableCell>
+                            {order.deliveryAddress ? (
+                              <div className="min-w-[300px] max-w-[400px]">
+                                <p className="whitespace-normal text-sm font-medium leading-5">
+                                  {order.deliveryAddress.address}
+                                </p>
 
-                              {order.status === "out_for_delivery" && (
-                                <DropdownMenuItem
-                                  onClick={() =>
-                                    updateOrderStatus(order.id, "delivered")
-                                  }
-                                  className="gap-3 rounded-lg"
+                                <p className="text-sm text-muted-foreground">
+                                  {[
+                                    order.deliveryAddress.city,
+                                    order.deliveryAddress.state,
+                                    order.deliveryAddress.pincode,
+                                  ]
+                                    .filter(Boolean)
+                                    .join(", ")}
+                                </p>
+
+                                {order.deliveryAddress.phone && (
+                                  <p className="mt-1 text-xs text-muted-foreground">
+                                    📞 {order.deliveryAddress.phone}
+                                  </p>
+                                )}
+                              </div>
+                            ) : (
+                              <span className="text-sm text-muted-foreground">
+                                —
+                              </span>
+                            )}
+                          </TableCell>
+
+                          {/* Payment */}
+                          <TableCell>
+                            <div className="space-y-1">
+                              <Badge variant="outline" className="text-xs">
+                                {order.paymentMethod === "Razorpay"
+                                  ? "Online"
+                                  : order.paymentMethod}
+                              </Badge>
+
+                              <p
+                                className={`text-xs font-medium ${
+                                  order.paymentStatus === "Paid"
+                                    ? "text-green-600 dark:text-green-400"
+                                    : order.paymentStatus === "Pending"
+                                      ? "text-yellow-600 dark:text-yellow-400"
+                                      : "text-muted-foreground"
+                                }`}
+                              >
+                                {order.paymentStatus || "Unknown"}
+                              </p>
+                            </div>
+                          </TableCell>
+
+                          {/* Status */}
+                          <TableCell>
+                            <Badge
+                              variant={
+                                STATUS_COLORS[order.status] || "secondary"
+                              }
+                            >
+                              {STATUS_LABELS[order.status] || order.status}
+                            </Badge>
+                          </TableCell>
+
+                          {/* Created */}
+                          <TableCell>
+                            <div>
+                              <p className="text-sm">
+                                {new Date(order.createdAt).toLocaleDateString()}
+                              </p>
+
+                              <p className="text-xs text-muted-foreground">
+                                {new Date(order.createdAt).toLocaleTimeString(
+                                  [],
+                                  {
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                  },
+                                )}
+                              </p>
+                            </div>
+                          </TableCell>
+
+                          <TableCell className="text-right">
+                            <DropdownMenu modal={false}>
+                              <DropdownMenuTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-9 w-9 rounded-full hover:bg-muted data-[state=open]:bg-muted"
                                 >
-                                  <CheckCircle2 className="h-4 w-4 text-green-600" />
-                                  <span>Mark Delivered</span>
-                                </DropdownMenuItem>
-                              )}
+                                  <MoreHorizontal className="h-5 w-5" />
+                                </Button>
+                              </DropdownMenuTrigger>
 
-                              {/* COD Payment Collection */}
+                              <DropdownMenuContent
+                                align="end"
+                                side="bottom"
+                                sideOffset={8}
+                                collisionPadding={16}
+                                className="w-72 rounded-xl border bg-background p-2 shadow-2xl"
+                              >
+                                <p className="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                                  Order Actions
+                                </p>
 
-                              {order.paymentMethod === "COD" &&
-                                order.status === "delivered" &&
-                                order.paymentStatus === "Pending" && (
+                                {/* Mark as Packing */}
+
+                                {((order.paymentMethod === "COD" &&
+                                  order.status === "pending") ||
+                                  (order.paymentMethod !== "COD" &&
+                                    order.paymentStatus === "Paid" &&
+                                    ["pending", "paid"].includes(
+                                      order.status,
+                                    ))) && (
                                   <DropdownMenuItem
                                     onClick={() =>
-                                      updateOrderStatus(order.id, "paid")
+                                      updateOrderStatus(order.id, "packing")
                                     }
                                     className="gap-3 rounded-lg"
                                   >
-                                    <Wallet className="h-4 w-4 text-emerald-600" />
-                                    <span>Mark Payment Received</span>
+                                    <Package className="h-4 w-4 text-orange-500" />
+                                    <span>Mark as Packing</span>
                                   </DropdownMenuItem>
                                 )}
 
-                              <DropdownMenuSeparator />
+                                {/* Mark as Shipped */}
 
-                              <p className="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                                Customer Service
-                              </p>
+                                {order.status === "packing" && (
+                                  <DropdownMenuItem
+                                    onClick={() =>
+                                      updateOrderStatus(order.id, "shipping")
+                                    }
+                                    className="gap-3 rounded-lg"
+                                  >
+                                    <Truck className="h-4 w-4 text-blue-500" />
+                                    <span>Mark as Shipped</span>
+                                  </DropdownMenuItem>
+                                )}
 
-                              {/* Cancel */}
+                                {/* Out for Delivery */}
 
-                              {![
-                                "cancelled",
-                                "returned",
-                                "refunded",
-                                "delivered",
-                              ].includes(order.status) && (
+                                {order.status === "shipping" && (
+                                  <DropdownMenuItem
+                                    onClick={() =>
+                                      updateOrderStatus(
+                                        order.id,
+                                        "out_for_delivery",
+                                      )
+                                    }
+                                    className="gap-3 rounded-lg"
+                                  >
+                                    <Bike className="h-4 w-4 text-violet-500" />
+                                    <span>Out for Delivery</span>
+                                  </DropdownMenuItem>
+                                )}
+
+                                {/* Delivered */}
+
+                                {order.status === "out_for_delivery" && (
+                                  <DropdownMenuItem
+                                    onClick={() =>
+                                      updateOrderStatus(order.id, "delivered")
+                                    }
+                                    className="gap-3 rounded-lg"
+                                  >
+                                    <CheckCircle2 className="h-4 w-4 text-green-600" />
+                                    <span>Mark Delivered</span>
+                                  </DropdownMenuItem>
+                                )}
+
+                                {/* COD Payment Collection */}
+
+                                {order.paymentMethod === "COD" &&
+                                  order.status === "delivered" &&
+                                  order.paymentStatus === "Pending" && (
+                                    <DropdownMenuItem
+                                      onClick={() =>
+                                        updateOrderStatus(order.id, "paid")
+                                      }
+                                      className="gap-3 rounded-lg"
+                                    >
+                                      <Wallet className="h-4 w-4 text-emerald-600" />
+                                      <span>Mark Payment Received</span>
+                                    </DropdownMenuItem>
+                                  )}
+
+                                <DropdownMenuSeparator />
+
+                                <p className="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                                  Customer Service
+                                </p>
+
+                                {/* Cancel */}
+
+                                {![
+                                  "cancelled",
+                                  "returned",
+                                  "refunded",
+                                  "delivered",
+                                ].includes(order.status) && (
+                                  <DropdownMenuItem
+                                    onClick={() => openCancelDialog(order)}
+                                    className="gap-3 rounded-lg text-red-600 focus:text-red-600"
+                                  >
+                                    <Ban className="h-4 w-4" />
+                                    <span>Cancel Order</span>
+                                  </DropdownMenuItem>
+                                )}
+
+                                {/* Return */}
+
+                                {order.status === "delivered" && (
+                                  <DropdownMenuItem
+                                    onClick={() => openReturnDialog(order)}
+                                    className="gap-3 rounded-lg"
+                                  >
+                                    <RotateCcw className="h-4 w-4 text-amber-500" />
+                                    <span>Process Return</span>
+                                  </DropdownMenuItem>
+                                )}
+
+                                {/* Refund */}
+
+                                {["cancelled", "returned"].includes(
+                                  order.status,
+                                ) && (
+                                  <DropdownMenuItem
+                                    onClick={() => openRefundDialog(order)}
+                                    className="gap-3 rounded-lg"
+                                  >
+                                    <IndianRupee className="h-4 w-4 text-green-600" />
+                                    <span>Initiate Refund</span>
+                                  </DropdownMenuItem>
+                                )}
+
+                                <p className="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                                  Documents
+                                </p>
+
                                 <DropdownMenuItem
-                                  onClick={() => openCancelDialog(order)}
-                                  className="gap-3 rounded-lg text-red-600 focus:text-red-600"
-                                >
-                                  <Ban className="h-4 w-4" />
-                                  <span>Cancel Order</span>
-                                </DropdownMenuItem>
-                              )}
-
-                              {/* Return */}
-
-                              {order.status === "delivered" && (
-                                <DropdownMenuItem
-                                  onClick={() => openReturnDialog(order)}
+                                  onClick={() => generateInvoice(order)}
                                   className="gap-3 rounded-lg"
                                 >
-                                  <RotateCcw className="h-4 w-4 text-amber-500" />
-                                  <span>Process Return</span>
+                                  <FileText className="h-4 w-4 text-red-500" />
+                                  <span>Generate Invoice</span>
                                 </DropdownMenuItem>
-                              )}
 
-                              {/* Refund */}
+                                <DropdownMenuSeparator />
 
-                              {["cancelled", "returned"].includes(
-                                order.status,
-                              ) && (
+                                <p className="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                                  Communication
+                                </p>
+
                                 <DropdownMenuItem
-                                  onClick={() => openRefundDialog(order)}
+                                  onClick={() => openEmailDialog(order)}
                                   className="gap-3 rounded-lg"
                                 >
-                                  <IndianRupee className="h-4 w-4 text-green-600" />
-                                  <span>Initiate Refund</span>
+                                  <Mail className="h-4 w-4 text-sky-500" />
+                                  <span>Send Email</span>
                                 </DropdownMenuItem>
-                              )}
 
-                              <p className="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                                Documents
-                              </p>
+                                <DropdownMenuItem
+                                  onClick={() => openTimeline(order)}
+                                  className="gap-3 rounded-lg"
+                                >
+                                  <History className="h-4 w-4 text-slate-500" />
+                                  <span>View Timeline</span>
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    ) : (
+                      <TableRow>
+                        <TableCell colSpan={8} className="h-52">
+                          <div className="flex flex-col items-center justify-center text-center">
+                            <div className="rounded-full bg-muted p-3">
+                              <ShoppingBag className="h-6 w-6 text-muted-foreground" />
+                            </div>
 
-                              <DropdownMenuItem
-                                onClick={() => generateInvoice(order)}
-                                className="gap-3 rounded-lg"
-                              >
-                                <FileText className="h-4 w-4 text-red-500" />
-                                <span>Generate Invoice</span>
-                              </DropdownMenuItem>
+                            <p className="mt-3 font-medium">No orders found</p>
 
-                              <DropdownMenuSeparator />
-
-                              <p className="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                                Communication
-                              </p>
-
-                              <DropdownMenuItem
-                                onClick={() => openEmailDialog(order)}
-                                className="gap-3 rounded-lg"
-                              >
-                                <Mail className="h-4 w-4 text-sky-500" />
-                                <span>Send Email</span>
-                              </DropdownMenuItem>
-
-                              <DropdownMenuItem
-                                onClick={() => openTimeline(order)}
-                                className="gap-3 rounded-lg"
-                              >
-                                <History className="h-4 w-4 text-slate-500" />
-                                <span>View Timeline</span>
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
+                            <p className="mt-1 text-sm text-muted-foreground">
+                              Orders will appear here once customers place them.
+                            </p>
+                          </div>
                         </TableCell>
-                      </TableRow> ))
-) : (
-  <TableRow>
-    <TableCell
-      colSpan={8}
-      className="h-52"
-    >
-      <div className="flex flex-col items-center justify-center text-center">
-        <div className="rounded-full bg-muted p-3">
-          <ShoppingBag className="h-6 w-6 text-muted-foreground" />
-        </div>
-
-        <p className="mt-3 font-medium">
-          No orders found
-        </p>
-
-        <p className="mt-1 text-sm text-muted-foreground">
-          Orders will appear here once customers place them.
-        </p>
-      </div>
-    </TableCell>
-  </TableRow>
-)}
+                      </TableRow>
+                    )}
                   </TableBody>
                 </Table>
               </CardContent>
@@ -5457,1004 +5453,1139 @@ const [orderPaymentFilter, setOrderPaymentFilter] =
               </DialogContent>
             </Dialog>
 
-           {orderTotal > 0 && (
-  <div className="flex flex-col gap-3 border-t pt-4 sm:flex-row sm:items-center sm:justify-between">
-    <p className="text-sm text-muted-foreground">
-      Showing{" "}
-      <span className="font-medium text-foreground">
-        {(orderPage - 1) * orderLimit + 1}
-      </span>{" "}
-      to{" "}
-      <span className="font-medium text-foreground">
-        {Math.min(
-          orderPage * orderLimit,
-          orderTotal,
-        )}
-      </span>{" "}
-      of{" "}
-      <span className="font-medium text-foreground">
-        {orderTotal}
-      </span>{" "}
-      orders
-    </p>
-
-    <div className="flex items-center gap-2">
-      <Button
-        variant="outline"
-        size="sm"
-        disabled={orderPage <= 1}
-        onClick={() =>
-          setOrderPage((prev) => prev - 1)
-        }
-      >
-        Previous
-      </Button>
-
-      <div className="flex h-9 min-w-9 items-center justify-center rounded-md border bg-muted px-3 text-sm font-medium">
-        {orderPage}
-      </div>
-
-      <Button
-        variant="outline"
-        size="sm"
-        disabled={
-          orderPage >=
-          Math.ceil(orderTotal / orderLimit)
-        }
-        onClick={() =>
-          setOrderPage((prev) => prev + 1)
-        }
-      >
-        Next
-      </Button>
-    </div>
-  </div>
-)}
-          </TabsContent>
-
-          {/* Warehouses Tab */}
-          <TabsContent value="warehouses" className="space-y-4">
-            <div className="flex flex-col gap-5">
-  {/* Header */}
-  <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-    <div>
-      <h2 className="text-2xl font-bold tracking-tight">
-        Warehouses & Stores
-      </h2>
-
-      <p className="text-sm text-muted-foreground">
-        Manage your storage locations and warehouse contacts
-      </p>
-    </div>
-
-    {currentUser?.role === "admin" && (
-      <Dialog
-        open={showWarehouseDialog}
-        onOpenChange={setShowWarehouseDialog}
-      >
-        <DialogTrigger asChild>
-          <Button>
-            <Plus className="mr-2 h-4 w-4" />
-            Add Location
-          </Button>
-        </DialogTrigger>
-                  <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
-  <DialogHeader>
-    <DialogTitle className="text-xl">
-      {isEditingWarehouse
-        ? "Edit Warehouse"
-        : "Add Warehouse"}
-    </DialogTitle>
-
-    <DialogDescription>
-      {isEditingWarehouse
-        ? "Update the warehouse or store information."
-        : "Add a new inventory storage location."}
-    </DialogDescription>
-  </DialogHeader>
-
-  <form
-    onSubmit={createWarehouse}
-    className="space-y-6"
-  >
-    {/* Basic Information */}
-    <div className="space-y-4">
-      <div>
-        <p className="text-sm font-semibold">
-          Location Information
-        </p>
-
-        <p className="text-xs text-muted-foreground">
-          Basic details about this inventory location.
-        </p>
-      </div>
-
-      <div className="space-y-2">
-        <Label>Name</Label>
-
-        <Input
-          value={warehouseForm.name}
-          onChange={(e) =>
-            setWarehouseForm({
-              ...warehouseForm,
-              name: e.target.value,
-            })
-          }
-          placeholder="e.g. Delhi Main Warehouse"
-          required
-        />
-      </div>
-
-      <div className="space-y-2">
-        <Label>Type</Label>
-
-        <Select
-          value={warehouseForm.type}
-          onValueChange={(val) =>
-            setWarehouseForm({
-              ...warehouseForm,
-              type: val,
-            })
-          }
-        >
-          <SelectTrigger>
-            <SelectValue placeholder="Select location type" />
-          </SelectTrigger>
-
-          <SelectContent>
-            <SelectItem value="warehouse">
-              Warehouse
-            </SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-
-      <div className="space-y-2">
-        <Label>Location</Label>
-
-        <div className="relative">
-          <MapPin className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-
-          <Input
-            value={warehouseForm.location}
-            onChange={(e) =>
-              setWarehouseForm({
-                ...warehouseForm,
-                location: e.target.value,
-              })
-            }
-            placeholder="e.g. Delhi, India"
-            className="pl-9"
-            required
-          />
-        </div>
-      </div>
-
-      <div className="space-y-2">
-        <Label>Address</Label>
-
-        <Textarea
-          value={warehouseForm.address}
-          onChange={(e) =>
-            setWarehouseForm({
-              ...warehouseForm,
-              address: e.target.value,
-            })
-          }
-          placeholder="Enter the complete warehouse address"
-          rows={3}
-        />
-      </div>
-    </div>
-
-    {/* Contact Information */}
-    <div className="space-y-4 border-t pt-5">
-      <div>
-        <p className="text-sm font-semibold">
-          Contact Information
-        </p>
-
-        <p className="text-xs text-muted-foreground">
-          Person responsible for this location.
-        </p>
-      </div>
-
-      <div className="space-y-2">
-        <Label>Contact Person</Label>
-
-        <Input
-          value={warehouseForm.contactPerson}
-          onChange={(e) =>
-            setWarehouseForm({
-              ...warehouseForm,
-              contactPerson: e.target.value,
-            })
-          }
-          placeholder="Enter contact person's name"
-        />
-      </div>
-
-      <div className="space-y-2">
-        <Label>Phone</Label>
-
-        <div className="relative">
-          <Phone className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-
-          <Input
-            value={warehouseForm.phone}
-            onChange={(e) =>
-              setWarehouseForm({
-                ...warehouseForm,
-                phone: e.target.value,
-              })
-            }
-            placeholder="Enter contact number"
-            className="pl-9"
-          />
-        </div>
-      </div>
-    </div>
-
-    {/* Actions */}
-    <div className="flex justify-end gap-2 border-t pt-5">
-      <Button
-        type="button"
-        variant="outline"
-        onClick={() =>
-          setShowWarehouseDialog(false)
-        }
-      >
-        Cancel
-      </Button>
-
-      <Button type="submit">
-        {isEditingWarehouse
-          ? "Update Location"
-          : "Create Location"}
-      </Button>
-    </div>
-  </form>
-</DialogContent>
-                </Dialog>
-    )}
-  </div>
-
-  {/* Location Summary */}
-  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-    <Card>
-      <CardContent className="flex items-center justify-between p-5">
-        <div>
-          <p className="text-sm text-muted-foreground">
-            Total Locations
-          </p>
-
-          <p className="mt-1 text-2xl font-bold">
-            {warehouses.length}
-          </p>
-        </div>
-
-        <div className="rounded-lg bg-blue-100 p-3 dark:bg-blue-950/40">
-          <Warehouse className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-        </div>
-      </CardContent>
-    </Card>
-
-    <Card>
-      <CardContent className="flex items-center justify-between p-5">
-        <div>
-          <p className="text-sm text-muted-foreground">
-            Warehouses
-          </p>
-
-          <p className="mt-1 text-2xl font-bold">
-            {
-              warehouses.filter(
-                (warehouse) =>
-                  warehouse.type === "warehouse",
-              ).length
-            }
-          </p>
-        </div>
-
-        <div className="rounded-lg bg-purple-100 p-3 dark:bg-purple-950/40">
-          <Boxes className="h-5 w-5 text-purple-600 dark:text-purple-400" />
-        </div>
-      </CardContent>
-    </Card>
-
-    <Card>
-      <CardContent className="flex items-center justify-between p-5">
-        <div>
-          <p className="text-sm text-muted-foreground">
-            Active Locations
-          </p>
-
-          <p className="mt-1 text-2xl font-bold">
-            {warehouses.length}
-          </p>
-        </div>
-
-        <div className="rounded-lg bg-green-100 p-3 dark:bg-green-950/40">
-          <MapPin className="h-5 w-5 text-green-600 dark:text-green-400" />
-        </div>
-      </CardContent>
-    </Card>
-  </div>
-</div>
-
-            <Card className="border-border/60 shadow-sm">
-  <CardHeader>
-    <div className="flex items-center justify-between">
-      <div>
-        <CardTitle>Locations</CardTitle>
-        <CardDescription>
-          Manage warehouse locations and contact information
-        </CardDescription>
-      </div>
-
-      <div className="rounded-lg bg-muted p-2.5">
-        <Warehouse className="h-5 w-5 text-muted-foreground" />
-      </div>
-    </div>
-  </CardHeader>
-
-  <CardContent className="p-0">
-    {warehouses.length > 0 ? (
-      <Table>
-        <TableHeader>
-          <TableRow className="bg-muted/40">
-            <TableHead className="font-semibold">
-              Location
-            </TableHead>
-
-            <TableHead className="font-semibold">
-              Type
-            </TableHead>
-
-            <TableHead className="font-semibold">
-              Address
-            </TableHead>
-
-            <TableHead className="font-semibold">
-              Contact
-            </TableHead>
-
-            <TableHead className="font-semibold">
-              Phone
-            </TableHead>
-
-            {currentUser?.role === "admin" && (
-              <TableHead className="text-right font-semibold">
-                Actions
-              </TableHead>
-            )}
-          </TableRow>
-        </TableHeader>
-
-        <TableBody>
-          {warehouses.map((warehouse, ind) => (
-            <TableRow
-              key={`${warehouse.id}-${ind}`}
-              className="hover:bg-muted/30"
-            >
-              {/* Location */}
-              <TableCell>
-                <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-blue-100 dark:bg-blue-950/40">
-                    <Warehouse className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-                  </div>
-
-                  <div>
-                    <p className="font-semibold">
-                      {warehouse.name}
-                    </p>
-
-                    <p className="text-xs text-muted-foreground">
-                      {warehouse.location}
-                    </p>
-                  </div>
-                </div>
-              </TableCell>
-
-              {/* Type */}
-              <TableCell>
-                <Badge
-                  variant={
-                    warehouse.type === "warehouse"
-                      ? "default"
-                      : "secondary"
-                  }
-                  className="capitalize"
-                >
-                  {warehouse.type}
-                </Badge>
-              </TableCell>
-
-              {/* Address */}
-              <TableCell>
-                <div className="flex max-w-[320px] items-start gap-2">
-                  <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-
-                  <span className="whitespace-normal text-sm leading-5">
-                    {warehouse.address || "No address provided"}
-                  </span>
-                </div>
-              </TableCell>
-
-              {/* Contact */}
-              <TableCell>
-                {warehouse.contactPerson ? (
-                  <div>
-                    <p className="text-sm font-medium">
-                      {warehouse.contactPerson}
-                    </p>
-
-                    <p className="text-xs text-muted-foreground">
-                      Contact person
-                    </p>
-                  </div>
-                ) : (
-                  <span className="text-sm text-muted-foreground">
-                    —
-                  </span>
-                )}
-              </TableCell>
-
-              {/* Phone */}
-              <TableCell>
-                {warehouse.phone ? (
-                  <div className="flex items-center gap-2">
-                    <Phone className="h-4 w-4 text-muted-foreground" />
-
-                    <span className="text-sm">
-                      {warehouse.phone}
-                    </span>
-                  </div>
-                ) : (
-                  <span className="text-sm text-muted-foreground">
-                    —
-                  </span>
-                )}
-              </TableCell>
-
-              {/* Actions */}
-              {currentUser?.role === "admin" && (
-                <TableCell className="text-right">
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    onClick={() =>
-                      editWarehouse(warehouse)
-                    }
-                    title="Edit location"
-                  >
-                    <Pencil className="h-4 w-4" />
-                  </Button>
-                </TableCell>
-              )}
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    ) : (
-      <div className="flex min-h-52 flex-col items-center justify-center text-center">
-        <div className="rounded-full bg-muted p-3">
-          <Warehouse className="h-6 w-6 text-muted-foreground" />
-        </div>
-
-        <p className="mt-3 font-medium">
-          No locations found
-        </p>
-
-        <p className="mt-1 text-sm text-muted-foreground">
-          Add your first warehouse or store location.
-        </p>
-
-        {currentUser?.role === "admin" && (
-          <Button
-            className="mt-4"
-            onClick={() =>
-              setShowWarehouseDialog(true)
-            }
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            Add Location
-          </Button>
-        )}
-      </div>
-    )}
-  </CardContent>
-</Card>
-          </TabsContent>
-
-          {/* Users Tab */}
-{currentUser?.role === "admin" && (
-  <TabsContent value="users" className="space-y-6">
-    {/* Header */}
-    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-      <div>
-        <h2 className="text-2xl font-bold tracking-tight">
-          Users
-        </h2>
-
-        <p className="text-sm text-muted-foreground">
-          Manage system users, roles, and access
-        </p>
-      </div>
-
-      <Dialog
-        open={addUserOpen}
-        onOpenChange={setAddUserOpen}
-      >
-        <DialogTrigger asChild>
-          <Button>
-            <Plus className="mr-2 h-4 w-4" />
-            Add User
-          </Button>
-        </DialogTrigger>
-
-        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Add New User</DialogTitle>
-
-            <DialogDescription>
-              Create a new system user and assign their role.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-5">
-            {/* Basic Information */}
-            <div className="space-y-4">
-              <div>
-                <p className="text-sm font-semibold">
-                  User Information
-                </p>
-
-                <p className="text-xs text-muted-foreground">
-                  Enter the user's account details.
-                </p>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Full Name</Label>
-
-                <Input
-                  placeholder="Enter full name"
-                  value={newUser.name}
-                  onChange={(e) =>
-                    setNewUser({
-                      ...newUser,
-                      name: e.target.value,
-                    })
-                  }
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label>Email</Label>
-
-                <Input
-                  type="email"
-                  placeholder="user@example.com"
-                  value={newUser.email}
-                  onChange={(e) =>
-                    setNewUser({
-                      ...newUser,
-                      email: e.target.value,
-                    })
-                  }
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label>Temporary Password</Label>
-
-                <Input
-                  type="password"
-                  placeholder="Enter temporary password"
-                  value={newUser.password}
-                  onChange={(e) =>
-                    setNewUser({
-                      ...newUser,
-                      password: e.target.value,
-                    })
-                  }
-                />
-
-                <p className="text-xs text-muted-foreground">
-                  The user should change this after their first login.
-                </p>
-              </div>
-            </div>
-
-            {/* Role */}
-            <div className="space-y-4 border-t pt-5">
-              <div>
-                <p className="text-sm font-semibold">
-                  Access Role
-                </p>
-
-                <p className="text-xs text-muted-foreground">
-                  Determine what this user can access.
-                </p>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Role</Label>
-
-                <Select
-                  value={newUser.role}
-                  onValueChange={(value) =>
-                    setNewUser({
-                      ...newUser,
-                      role: value,
-                    })
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select role" />
-                  </SelectTrigger>
-
-                  <SelectContent>
-                    <SelectItem value="inventory_manager">
-                      Inventory Manager
-                    </SelectItem>
-
-                    <SelectItem value="store_manager">
-                      Store Manager
-                    </SelectItem>
-
-                    <SelectItem value="admin">
-                      Admin
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          </div>
-
-          <DialogFooter className="gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setAddUserOpen(false)}
-            >
-              Cancel
-            </Button>
-
-            <Button
-              disabled={addingUser}
-              onClick={createUser}
-            >
-              {addingUser ? (
-                "Creating..."
-              ) : (
-                <>
-                  <Plus className="mr-2 h-4 w-4" />
-                  Create User
-                </>
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </div>
-
-    {/* User Summary */}
-    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-      <Card>
-        <CardContent className="flex items-center justify-between p-5">
-          <div>
-            <p className="text-sm text-muted-foreground">
-              Total Users
-            </p>
-
-            <p className="mt-1 text-2xl font-bold">
-              {users.length}
-            </p>
-          </div>
-
-          <div className="rounded-lg bg-blue-100 p-3 dark:bg-blue-950/40">
-            <Users className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardContent className="flex items-center justify-between p-5">
-          <div>
-            <p className="text-sm text-muted-foreground">
-              Active Users
-            </p>
-
-            <p className="mt-1 text-2xl font-bold">
-              {
-                users.filter(
-                  (user) => user.isActive,
-                ).length
-              }
-            </p>
-          </div>
-
-          <div className="rounded-lg bg-green-100 p-3 dark:bg-green-950/40">
-            <UserCheck className="h-5 w-5 text-green-600 dark:text-green-400" />
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardContent className="flex items-center justify-between p-5">
-          <div>
-            <p className="text-sm text-muted-foreground">
-              Admins
-            </p>
-
-            <p className="mt-1 text-2xl font-bold">
-              {
-                users.filter(
-                  (user) => user.role === "admin",
-                ).length
-              }
-            </p>
-          </div>
-
-          <div className="rounded-lg bg-purple-100 p-3 dark:bg-purple-950/40">
-            <ShieldCheck className="h-5 w-5 text-purple-600 dark:text-purple-400" />
-          </div>
-        </CardContent>
-      </Card>
-    </div>
-
-    {/* User Table */}
-    <Card className="border-border/60 shadow-sm">
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <div>
-            <CardTitle>User Management</CardTitle>
-
-            <CardDescription>
-              Manage system users and their access roles
-            </CardDescription>
-          </div>
-
-          <div className="rounded-lg bg-muted p-2.5">
-            <Users className="h-5 w-5 text-muted-foreground" />
-          </div>
-        </div>
-      </CardHeader>
-
-      <CardContent className="p-0">
-        {users.length > 0 ? (
-          <Table>
-            <TableHeader>
-              <TableRow className="bg-muted/40">
-                <TableHead className="font-semibold">
-                  User
-                </TableHead>
-
-                <TableHead className="font-semibold">
-                  Email
-                </TableHead>
-
-                <TableHead className="font-semibold">
-                  Role
-                </TableHead>
-
-                <TableHead className="font-semibold">
-                  Status
-                </TableHead>
-
-                <TableHead className="font-semibold">
-                  Created
-                </TableHead>
-
-                <TableHead className="text-right font-semibold">
-                  Actions
-                </TableHead>
-              </TableRow>
-            </TableHeader>
-
-            <TableBody>
-              {users.map((user) => (
-                <TableRow
-                  key={user._id || user.id}
-                  className="hover:bg-muted/30"
-                >
-                  {/* User */}
-                  <TableCell>
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-semibold">
-                        {user.name
-                          ?.charAt(0)
-                          ?.toUpperCase() || "?"}
-                      </div>
-
-                      <div>
-                        <p className="font-medium">
-                          {user.name}
-                        </p>
-
-                        {user._id === currentUser?.id && (
-                          <p className="text-xs text-muted-foreground">
-                            You
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  </TableCell>
-
-                  {/* Email */}
-                  <TableCell>
-                    <span className="text-sm">
-                      {user.email}
-                    </span>
-                  </TableCell>
-
-                  {/* Role */}
-                  <TableCell>
-                    <Badge
-                      variant={
-                        user.role === "admin"
-                          ? "default"
-                          : "secondary"
-                      }
-                      className="capitalize"
-                    >
-                      {user.role.replace("_", " ")}
-                    </Badge>
-                  </TableCell>
-
-                  {/* Status */}
-                  <TableCell>
-                    <Badge
-                      variant={
-                        user.isActive
-                          ? "default"
-                          : "destructive"
-                      }
-                    >
-                      {user.isActive ? (
-                        <>
-                          <CircleCheck className="mr-1 h-3.5 w-3.5" />
-                          Active
-                        </>
-                      ) : (
-                        <>
-                          <CircleX className="mr-1 h-3.5 w-3.5" />
-                          Inactive
-                        </>
-                      )}
-                    </Badge>
-                  </TableCell>
-
-                  {/* Created */}
-                  <TableCell>
-                    <div>
-                      <p className="text-sm">
-                        {new Date(
-                          user.createdAt,
-                        ).toLocaleDateString()}
-                      </p>
-
-                      <p className="text-xs text-muted-foreground">
-                        {new Date(
-                          user.createdAt,
-                        ).toLocaleTimeString([], {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
-                      </p>
-                    </div>
-                  </TableCell>
-
-                  {/* Actions */}
-                  <TableCell className="text-right">
-                    {user._id !== currentUser?.id && (
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="text-destructive hover:text-destructive"
-                        onClick={() =>
-                          deleteUser(user._id)
-                        }
-                        title="Delete user"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    )}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        ) : (
-          <div className="flex min-h-52 flex-col items-center justify-center text-center">
-            <div className="rounded-full bg-muted p-3">
-              <Users className="h-6 w-6 text-muted-foreground" />
-            </div>
-
-            <p className="mt-3 font-medium">
-              No users found
-            </p>
-
-            <p className="mt-1 text-sm text-muted-foreground">
-              Create your first system user to get started.
-            </p>
-          </div>
-        )}
-      </CardContent>
-    </Card>
-  </TabsContent>
-)}
-
-          {/* Activity Logs Tab */}
-          {(currentUser?.role === "admin" ||
-            currentUser?.role === "inventory_manager") && (
-            <TabsContent value="logs" className="space-y-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Activity Logs</CardTitle>
-                  <CardDescription>
-                    Audit trail of system actions
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Timestamp</TableHead>
-                        <TableHead>User</TableHead>
-                        <TableHead>Action</TableHead>
-                        <TableHead>Entity Type</TableHead>
-                        <TableHead>Entity ID</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {activityLogs.map((log) => (
-                        <TableRow key={log._id || log.id}>
-                          <TableCell>
-                            {new Date(log.timestamp).toLocaleString()}
-                          </TableCell>
-                          <TableCell>
-                            {log.userId?.name || log.userId?.email || "Unknown"}
-                          </TableCell>
-                          <TableCell>
-                            <Badge>{log.action}</Badge>
-                          </TableCell>
-                          <TableCell>{log.entityType}</TableCell>
-                          <TableCell className="font-mono text-xs">
-                            {log.entityId}
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </CardContent>
-              </Card>
-              <div className="flex items-center justify-between mt-4">
+            {orderTotal > 0 && (
+              <div className="flex flex-col gap-3 border-t pt-4 sm:flex-row sm:items-center sm:justify-between">
                 <p className="text-sm text-muted-foreground">
-                  Page {logPage} of{" "}
-                  {Math.max(1, Math.ceil(logTotal / logLimit))}
+                  Showing{" "}
+                  <span className="font-medium text-foreground">
+                    {(orderPage - 1) * orderLimit + 1}
+                  </span>{" "}
+                  to{" "}
+                  <span className="font-medium text-foreground">
+                    {Math.min(orderPage * orderLimit, orderTotal)}
+                  </span>{" "}
+                  of{" "}
+                  <span className="font-medium text-foreground">
+                    {orderTotal}
+                  </span>{" "}
+                  orders
                 </p>
 
-                <div className="flex gap-2">
+                <div className="flex items-center gap-2">
                   <Button
                     variant="outline"
-                    disabled={logPage <= 1}
-                    onClick={() => setLogPage((prev) => prev - 1)}
+                    size="sm"
+                    disabled={orderPage <= 1}
+                    onClick={() => setOrderPage((prev) => prev - 1)}
                   >
                     Previous
                   </Button>
 
+                  <div className="flex h-9 min-w-9 items-center justify-center rounded-md border bg-muted px-3 text-sm font-medium">
+                    {orderPage}
+                  </div>
+
                   <Button
                     variant="outline"
-                    disabled={logPage >= Math.ceil(logTotal / logLimit)}
-                    onClick={() => setLogPage((prev) => prev + 1)}
+                    size="sm"
+                    disabled={orderPage >= Math.ceil(orderTotal / orderLimit)}
+                    onClick={() => setOrderPage((prev) => prev + 1)}
                   >
                     Next
                   </Button>
                 </div>
               </div>
+            )}
+          </TabsContent>
+
+          {/* Warehouses Tab */}
+          <TabsContent value="warehouses" className="space-y-4">
+            <div className="flex flex-col gap-5">
+              {/* Header */}
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <h2 className="text-2xl font-bold tracking-tight">
+                    Warehouses & Stores
+                  </h2>
+
+                  <p className="text-sm text-muted-foreground">
+                    Manage your storage locations and warehouse contacts
+                  </p>
+                </div>
+
+                {currentUser?.role === "admin" && (
+                  <Dialog
+                    open={showWarehouseDialog}
+                    onOpenChange={setShowWarehouseDialog}
+                  >
+                    <DialogTrigger asChild>
+                      <Button>
+                        <Plus className="mr-2 h-4 w-4" />
+                        Add Location
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+                      <DialogHeader>
+                        <DialogTitle className="text-xl">
+                          {isEditingWarehouse
+                            ? "Edit Warehouse"
+                            : "Add Warehouse"}
+                        </DialogTitle>
+
+                        <DialogDescription>
+                          {isEditingWarehouse
+                            ? "Update the warehouse or store information."
+                            : "Add a new inventory storage location."}
+                        </DialogDescription>
+                      </DialogHeader>
+
+                      <form onSubmit={createWarehouse} className="space-y-6">
+                        {/* Basic Information */}
+                        <div className="space-y-4">
+                          <div>
+                            <p className="text-sm font-semibold">
+                              Location Information
+                            </p>
+
+                            <p className="text-xs text-muted-foreground">
+                              Basic details about this inventory location.
+                            </p>
+                          </div>
+
+                          <div className="space-y-2">
+                            <Label>Name</Label>
+
+                            <Input
+                              value={warehouseForm.name}
+                              onChange={(e) =>
+                                setWarehouseForm({
+                                  ...warehouseForm,
+                                  name: e.target.value,
+                                })
+                              }
+                              placeholder="e.g. Delhi Main Warehouse"
+                              required
+                            />
+                          </div>
+
+                          <div className="space-y-2">
+                            <Label>Type</Label>
+
+                            <Select
+                              value={warehouseForm.type}
+                              onValueChange={(val) =>
+                                setWarehouseForm({
+                                  ...warehouseForm,
+                                  type: val,
+                                })
+                              }
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select location type" />
+                              </SelectTrigger>
+
+                              <SelectContent>
+                                <SelectItem value="warehouse">
+                                  Warehouse
+                                </SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+
+                          <div className="space-y-2">
+                            <Label>Location</Label>
+
+                            <div className="relative">
+                              <MapPin className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+
+                              <Input
+                                value={warehouseForm.location}
+                                onChange={(e) =>
+                                  setWarehouseForm({
+                                    ...warehouseForm,
+                                    location: e.target.value,
+                                  })
+                                }
+                                placeholder="e.g. Delhi, India"
+                                className="pl-9"
+                                required
+                              />
+                            </div>
+                          </div>
+
+                          <div className="space-y-2">
+                            <Label>Address</Label>
+
+                            <Textarea
+                              value={warehouseForm.address}
+                              onChange={(e) =>
+                                setWarehouseForm({
+                                  ...warehouseForm,
+                                  address: e.target.value,
+                                })
+                              }
+                              placeholder="Enter the complete warehouse address"
+                              rows={3}
+                            />
+                          </div>
+                        </div>
+
+                        {/* Contact Information */}
+                        <div className="space-y-4 border-t pt-5">
+                          <div>
+                            <p className="text-sm font-semibold">
+                              Contact Information
+                            </p>
+
+                            <p className="text-xs text-muted-foreground">
+                              Person responsible for this location.
+                            </p>
+                          </div>
+
+                          <div className="space-y-2">
+                            <Label>Contact Person</Label>
+
+                            <Input
+                              value={warehouseForm.contactPerson}
+                              onChange={(e) =>
+                                setWarehouseForm({
+                                  ...warehouseForm,
+                                  contactPerson: e.target.value,
+                                })
+                              }
+                              placeholder="Enter contact person's name"
+                            />
+                          </div>
+
+                          <div className="space-y-2">
+                            <Label>Phone</Label>
+
+                            <div className="relative">
+                              <Phone className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+
+                              <Input
+                                value={warehouseForm.phone}
+                                onChange={(e) =>
+                                  setWarehouseForm({
+                                    ...warehouseForm,
+                                    phone: e.target.value,
+                                  })
+                                }
+                                placeholder="Enter contact number"
+                                className="pl-9"
+                              />
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Actions */}
+                        <div className="flex justify-end gap-2 border-t pt-5">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => setShowWarehouseDialog(false)}
+                          >
+                            Cancel
+                          </Button>
+
+                          <Button type="submit">
+                            {isEditingWarehouse
+                              ? "Update Location"
+                              : "Create Location"}
+                          </Button>
+                        </div>
+                      </form>
+                    </DialogContent>
+                  </Dialog>
+                )}
+              </div>
+
+              {/* Location Summary */}
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                <Card>
+                  <CardContent className="flex items-center justify-between p-5">
+                    <div>
+                      <p className="text-sm text-muted-foreground">
+                        Total Locations
+                      </p>
+
+                      <p className="mt-1 text-2xl font-bold">
+                        {warehouses.length}
+                      </p>
+                    </div>
+
+                    <div className="rounded-lg bg-blue-100 p-3 dark:bg-blue-950/40">
+                      <Warehouse className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardContent className="flex items-center justify-between p-5">
+                    <div>
+                      <p className="text-sm text-muted-foreground">
+                        Warehouses
+                      </p>
+
+                      <p className="mt-1 text-2xl font-bold">
+                        {
+                          warehouses.filter(
+                            (warehouse) => warehouse.type === "warehouse",
+                          ).length
+                        }
+                      </p>
+                    </div>
+
+                    <div className="rounded-lg bg-purple-100 p-3 dark:bg-purple-950/40">
+                      <Boxes className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardContent className="flex items-center justify-between p-5">
+                    <div>
+                      <p className="text-sm text-muted-foreground">
+                        Active Locations
+                      </p>
+
+                      <p className="mt-1 text-2xl font-bold">
+                        {warehouses.length}
+                      </p>
+                    </div>
+
+                    <div className="rounded-lg bg-green-100 p-3 dark:bg-green-950/40">
+                      <MapPin className="h-5 w-5 text-green-600 dark:text-green-400" />
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+
+            <Card className="border-border/60 shadow-sm">
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle>Locations</CardTitle>
+                    <CardDescription>
+                      Manage warehouse locations and contact information
+                    </CardDescription>
+                  </div>
+
+                  <div className="rounded-lg bg-muted p-2.5">
+                    <Warehouse className="h-5 w-5 text-muted-foreground" />
+                  </div>
+                </div>
+              </CardHeader>
+
+              <CardContent className="p-0">
+                {warehouses.length > 0 ? (
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="bg-muted/40">
+                        <TableHead className="font-semibold">
+                          Location
+                        </TableHead>
+
+                        <TableHead className="font-semibold">Type</TableHead>
+
+                        <TableHead className="font-semibold">Address</TableHead>
+
+                        <TableHead className="font-semibold">Contact</TableHead>
+
+                        <TableHead className="font-semibold">Phone</TableHead>
+
+                        {currentUser?.role === "admin" && (
+                          <TableHead className="text-right font-semibold">
+                            Actions
+                          </TableHead>
+                        )}
+                      </TableRow>
+                    </TableHeader>
+
+                    <TableBody>
+                      {warehouses.map((warehouse, ind) => (
+                        <TableRow
+                          key={`${warehouse.id}-${ind}`}
+                          className="hover:bg-muted/30"
+                        >
+                          {/* Location */}
+                          <TableCell>
+                            <div className="flex items-center gap-3">
+                              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-blue-100 dark:bg-blue-950/40">
+                                <Warehouse className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                              </div>
+
+                              <div>
+                                <p className="font-semibold">
+                                  {warehouse.name}
+                                </p>
+
+                                <p className="text-xs text-muted-foreground">
+                                  {warehouse.location}
+                                </p>
+                              </div>
+                            </div>
+                          </TableCell>
+
+                          {/* Type */}
+                          <TableCell>
+                            <Badge
+                              variant={
+                                warehouse.type === "warehouse"
+                                  ? "default"
+                                  : "secondary"
+                              }
+                              className="capitalize"
+                            >
+                              {warehouse.type}
+                            </Badge>
+                          </TableCell>
+
+                          {/* Address */}
+                          <TableCell>
+                            <div className="flex max-w-[320px] items-start gap-2">
+                              <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+
+                              <span className="whitespace-normal text-sm leading-5">
+                                {warehouse.address || "No address provided"}
+                              </span>
+                            </div>
+                          </TableCell>
+
+                          {/* Contact */}
+                          <TableCell>
+                            {warehouse.contactPerson ? (
+                              <div>
+                                <p className="text-sm font-medium">
+                                  {warehouse.contactPerson}
+                                </p>
+
+                                <p className="text-xs text-muted-foreground">
+                                  Contact person
+                                </p>
+                              </div>
+                            ) : (
+                              <span className="text-sm text-muted-foreground">
+                                —
+                              </span>
+                            )}
+                          </TableCell>
+
+                          {/* Phone */}
+                          <TableCell>
+                            {warehouse.phone ? (
+                              <div className="flex items-center gap-2">
+                                <Phone className="h-4 w-4 text-muted-foreground" />
+
+                                <span className="text-sm">
+                                  {warehouse.phone}
+                                </span>
+                              </div>
+                            ) : (
+                              <span className="text-sm text-muted-foreground">
+                                —
+                              </span>
+                            )}
+                          </TableCell>
+
+                          {/* Actions */}
+                          {currentUser?.role === "admin" && (
+                            <TableCell className="text-right">
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                onClick={() => editWarehouse(warehouse)}
+                                title="Edit location"
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                            </TableCell>
+                          )}
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                ) : (
+                  <div className="flex min-h-52 flex-col items-center justify-center text-center">
+                    <div className="rounded-full bg-muted p-3">
+                      <Warehouse className="h-6 w-6 text-muted-foreground" />
+                    </div>
+
+                    <p className="mt-3 font-medium">No locations found</p>
+
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      Add your first warehouse or store location.
+                    </p>
+
+                    {currentUser?.role === "admin" && (
+                      <Button
+                        className="mt-4"
+                        onClick={() => setShowWarehouseDialog(true)}
+                      >
+                        <Plus className="mr-2 h-4 w-4" />
+                        Add Location
+                      </Button>
+                    )}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Users Tab */}
+          {currentUser?.role === "admin" && (
+            <TabsContent value="users" className="space-y-6">
+              {/* Header */}
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <h2 className="text-2xl font-bold tracking-tight">Users</h2>
+
+                  <p className="text-sm text-muted-foreground">
+                    Manage system users, roles, and access
+                  </p>
+                </div>
+
+                <Dialog open={addUserOpen} onOpenChange={setAddUserOpen}>
+                  <DialogTrigger asChild>
+                    <Button>
+                      <Plus className="mr-2 h-4 w-4" />
+                      Add User
+                    </Button>
+                  </DialogTrigger>
+
+                  <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-md">
+                    <DialogHeader>
+                      <DialogTitle>Add New User</DialogTitle>
+
+                      <DialogDescription>
+                        Create a new system user and assign their role.
+                      </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="space-y-5">
+                      {/* Basic Information */}
+                      <div className="space-y-4">
+                        <div>
+                          <p className="text-sm font-semibold">
+                            User Information
+                          </p>
+
+                          <p className="text-xs text-muted-foreground">
+                            Enter the user's account details.
+                          </p>
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label>Full Name</Label>
+
+                          <Input
+                            placeholder="Enter full name"
+                            value={newUser.name}
+                            onChange={(e) =>
+                              setNewUser({
+                                ...newUser,
+                                name: e.target.value,
+                              })
+                            }
+                          />
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label>Email</Label>
+
+                          <Input
+                            type="email"
+                            placeholder="user@example.com"
+                            value={newUser.email}
+                            onChange={(e) =>
+                              setNewUser({
+                                ...newUser,
+                                email: e.target.value,
+                              })
+                            }
+                          />
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label>Temporary Password</Label>
+
+                          <Input
+                            type="password"
+                            placeholder="Enter temporary password"
+                            value={newUser.password}
+                            onChange={(e) =>
+                              setNewUser({
+                                ...newUser,
+                                password: e.target.value,
+                              })
+                            }
+                          />
+
+                          <p className="text-xs text-muted-foreground">
+                            The user should change this after their first login.
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Role */}
+                      <div className="space-y-4 border-t pt-5">
+                        <div>
+                          <p className="text-sm font-semibold">Access Role</p>
+
+                          <p className="text-xs text-muted-foreground">
+                            Determine what this user can access.
+                          </p>
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label>Role</Label>
+
+                          <Select
+                            value={newUser.role}
+                            onValueChange={(value) =>
+                              setNewUser({
+                                ...newUser,
+                                role: value,
+                              })
+                            }
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select role" />
+                            </SelectTrigger>
+
+                            <SelectContent>
+                              <SelectItem value="inventory_manager">
+                                Inventory Manager
+                              </SelectItem>
+
+                              <SelectItem value="store_manager">
+                                Store Manager
+                              </SelectItem>
+
+                              <SelectItem value="admin">Admin</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                    </div>
+
+                    <DialogFooter className="gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => setAddUserOpen(false)}
+                      >
+                        Cancel
+                      </Button>
+
+                      <Button disabled={addingUser} onClick={createUser}>
+                        {addingUser ? (
+                          "Creating..."
+                        ) : (
+                          <>
+                            <Plus className="mr-2 h-4 w-4" />
+                            Create User
+                          </>
+                        )}
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+              </div>
+
+              {/* User Summary */}
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                <Card>
+                  <CardContent className="flex items-center justify-between p-5">
+                    <div>
+                      <p className="text-sm text-muted-foreground">
+                        Total Users
+                      </p>
+
+                      <p className="mt-1 text-2xl font-bold">{users.length}</p>
+                    </div>
+
+                    <div className="rounded-lg bg-blue-100 p-3 dark:bg-blue-950/40">
+                      <Users className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardContent className="flex items-center justify-between p-5">
+                    <div>
+                      <p className="text-sm text-muted-foreground">
+                        Active Users
+                      </p>
+
+                      <p className="mt-1 text-2xl font-bold">
+                        {users.filter((user) => user.isActive).length}
+                      </p>
+                    </div>
+
+                    <div className="rounded-lg bg-green-100 p-3 dark:bg-green-950/40">
+                      <UserCheck className="h-5 w-5 text-green-600 dark:text-green-400" />
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardContent className="flex items-center justify-between p-5">
+                    <div>
+                      <p className="text-sm text-muted-foreground">Admins</p>
+
+                      <p className="mt-1 text-2xl font-bold">
+                        {users.filter((user) => user.role === "admin").length}
+                      </p>
+                    </div>
+
+                    <div className="rounded-lg bg-purple-100 p-3 dark:bg-purple-950/40">
+                      <ShieldCheck className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* User Table */}
+              <Card className="border-border/60 shadow-sm">
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle>User Management</CardTitle>
+
+                      <CardDescription>
+                        Manage system users and their access roles
+                      </CardDescription>
+                    </div>
+
+                    <div className="rounded-lg bg-muted p-2.5">
+                      <Users className="h-5 w-5 text-muted-foreground" />
+                    </div>
+                  </div>
+                </CardHeader>
+
+                <CardContent className="p-0">
+                  {users.length > 0 ? (
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="bg-muted/40">
+                          <TableHead className="font-semibold">User</TableHead>
+
+                          <TableHead className="font-semibold">Email</TableHead>
+
+                          <TableHead className="font-semibold">Role</TableHead>
+
+                          <TableHead className="font-semibold">
+                            Status
+                          </TableHead>
+
+                          <TableHead className="font-semibold">
+                            Created
+                          </TableHead>
+
+                          <TableHead className="text-right font-semibold">
+                            Actions
+                          </TableHead>
+                        </TableRow>
+                      </TableHeader>
+
+                      <TableBody>
+                        {users.map((user) => (
+                          <TableRow
+                            key={user._id || user.id}
+                            className="hover:bg-muted/30"
+                          >
+                            {/* User */}
+                            <TableCell>
+                              <div className="flex items-center gap-3">
+                                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-semibold">
+                                  {user.name?.charAt(0)?.toUpperCase() || "?"}
+                                </div>
+
+                                <div>
+                                  <p className="font-medium">{user.name}</p>
+
+                                  {user._id === currentUser?.id && (
+                                    <p className="text-xs text-muted-foreground">
+                                      You
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+                            </TableCell>
+
+                            {/* Email */}
+                            <TableCell>
+                              <span className="text-sm">{user.email}</span>
+                            </TableCell>
+
+                            {/* Role */}
+                            <TableCell>
+                              <Badge
+                                variant={
+                                  user.role === "admin"
+                                    ? "default"
+                                    : "secondary"
+                                }
+                                className="capitalize"
+                              >
+                                {user.role.replace("_", " ")}
+                              </Badge>
+                            </TableCell>
+
+                            {/* Status */}
+                            <TableCell>
+                              <Badge
+                                variant={
+                                  user.isActive ? "default" : "destructive"
+                                }
+                              >
+                                {user.isActive ? (
+                                  <>
+                                    <CircleCheck className="mr-1 h-3.5 w-3.5" />
+                                    Active
+                                  </>
+                                ) : (
+                                  <>
+                                    <CircleX className="mr-1 h-3.5 w-3.5" />
+                                    Inactive
+                                  </>
+                                )}
+                              </Badge>
+                            </TableCell>
+
+                            {/* Created */}
+                            <TableCell>
+                              <div>
+                                <p className="text-sm">
+                                  {new Date(
+                                    user.createdAt,
+                                  ).toLocaleDateString()}
+                                </p>
+
+                                <p className="text-xs text-muted-foreground">
+                                  {new Date(user.createdAt).toLocaleTimeString(
+                                    [],
+                                    {
+                                      hour: "2-digit",
+                                      minute: "2-digit",
+                                    },
+                                  )}
+                                </p>
+                              </div>
+                            </TableCell>
+
+                            {/* Actions */}
+                            <TableCell className="text-right">
+                              {user._id !== currentUser?.id && (
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className="text-destructive hover:text-destructive"
+                                  onClick={() => deleteUser(user._id)}
+                                  title="Delete user"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  ) : (
+                    <div className="flex min-h-52 flex-col items-center justify-center text-center">
+                      <div className="rounded-full bg-muted p-3">
+                        <Users className="h-6 w-6 text-muted-foreground" />
+                      </div>
+
+                      <p className="mt-3 font-medium">No users found</p>
+
+                      <p className="mt-1 text-sm text-muted-foreground">
+                        Create your first system user to get started.
+                      </p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+          )}
+
+          {/* Activity Logs Tab */}
+          {(currentUser?.role === "admin" ||
+            currentUser?.role === "inventory_manager") && (
+            <TabsContent value="logs" className="space-y-6">
+              {/* Header */}
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <h2 className="text-2xl font-bold tracking-tight">
+                    Activity Logs
+                  </h2>
+
+                  <p className="text-sm text-muted-foreground">
+                    Audit trail of system activity and inventory changes
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <div className="rounded-lg bg-muted p-2.5">
+                    <History className="h-5 w-5 text-muted-foreground" />
+                  </div>
+                </div>
+              </div>
+
+              {/* Log Summary */}
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                <Card>
+                  <CardContent className="flex items-center justify-between p-5">
+                    <div>
+                      <p className="text-sm text-muted-foreground">
+                        Total Activities
+                      </p>
+
+                      <p className="mt-1 text-2xl font-bold">{logTotal || 0}</p>
+                    </div>
+
+                    <div className="rounded-lg bg-blue-100 p-3 dark:bg-blue-950/40">
+                      <Activity className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardContent className="flex items-center justify-between p-5">
+                    <div>
+                      <p className="text-sm text-muted-foreground">
+                        Current Page
+                      </p>
+
+                      <p className="mt-1 text-2xl font-bold">{logPage}</p>
+                    </div>
+
+                    <div className="rounded-lg bg-purple-100 p-3 dark:bg-purple-950/40">
+                      <FileClock className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardContent className="flex items-center justify-between p-5">
+                    <div>
+                      <p className="text-sm text-muted-foreground">Log Pages</p>
+
+                      <p className="mt-1 text-2xl font-bold">
+                        {Math.max(1, Math.ceil(logTotal / logLimit))}
+                      </p>
+                    </div>
+
+                    <div className="rounded-lg bg-green-100 p-3 dark:bg-green-950/40">
+                      <Files className="h-5 w-5 text-green-600 dark:text-green-400" />
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Logs Table */}
+              <Card className="border-border/60 shadow-sm">
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle>System Activity</CardTitle>
+
+                      <CardDescription>
+                        Every recorded action performed by system users
+                      </CardDescription>
+                    </div>
+
+                    <div className="rounded-lg bg-muted p-2.5">
+                      <ShieldCheck className="h-5 w-5 text-muted-foreground" />
+                    </div>
+                  </div>
+                </CardHeader>
+
+                <CardContent className="p-0">
+                  {activityLogs.length > 0 ? (
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="bg-muted/40">
+                          <TableHead className="font-semibold">
+                            Activity
+                          </TableHead>
+
+                          <TableHead className="font-semibold">User</TableHead>
+
+                          <TableHead className="font-semibold">
+                            Action
+                          </TableHead>
+
+                          <TableHead className="font-semibold">
+                            Entity
+                          </TableHead>
+
+                          <TableHead className="font-semibold">
+                            Entity ID
+                          </TableHead>
+
+                          <TableHead className="font-semibold">
+                            Timestamp
+                          </TableHead>
+                        </TableRow>
+                      </TableHeader>
+
+                      <TableBody>
+                        {activityLogs.map((log) => (
+                          <TableRow
+                            key={log._id || log.id}
+                            className="hover:bg-muted/30"
+                          >
+                            {/* Activity */}
+                            <TableCell>
+                              <div className="flex items-center gap-3">
+                                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted">
+                                  <Activity className="h-4 w-4 text-muted-foreground" />
+                                </div>
+
+                                <div>
+                                  <p className="text-sm font-medium">
+                                    {log.action}
+                                  </p>
+
+                                  <p className="text-xs text-muted-foreground">
+                                    System activity
+                                  </p>
+                                </div>
+                              </div>
+                            </TableCell>
+
+                            {/* User */}
+                            <TableCell>
+                              <div>
+                                <p className="text-sm font-medium">
+                                  {log.userId?.name || "Unknown"}
+                                </p>
+
+                                {log.userId?.email && (
+                                  <p className="text-xs text-muted-foreground">
+                                    {log.userId.email}
+                                  </p>
+                                )}
+                              </div>
+                            </TableCell>
+
+                            {/* Action */}
+                            <TableCell>
+                              <Badge
+                                variant={
+                                  log.action === "delete"
+                                    ? "destructive"
+                                    : log.action === "create"
+                                      ? "default"
+                                      : "secondary"
+                                }
+                                className="capitalize"
+                              >
+                                {log.action}
+                              </Badge>
+                            </TableCell>
+
+                            {/* Entity */}
+                            <TableCell>
+                              <Badge variant="outline" className="capitalize">
+                                {log.entityType}
+                              </Badge>
+                            </TableCell>
+
+                            {/* Entity ID */}
+                            <TableCell>
+                              <span className="rounded bg-muted px-2 py-1 font-mono text-xs">
+                                {log.entityId || "—"}
+                              </span>
+                            </TableCell>
+
+                            {/* Timestamp */}
+                            <TableCell>
+                              <div>
+                                <p className="text-sm">
+                                  {new Date(log.timestamp).toLocaleDateString()}
+                                </p>
+
+                                <p className="text-xs text-muted-foreground">
+                                  {new Date(log.timestamp).toLocaleTimeString(
+                                    [],
+                                    {
+                                      hour: "2-digit",
+                                      minute: "2-digit",
+                                    },
+                                  )}
+                                </p>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  ) : (
+                    <div className="flex min-h-52 flex-col items-center justify-center text-center">
+                      <div className="rounded-full bg-muted p-3">
+                        <History className="h-6 w-6 text-muted-foreground" />
+                      </div>
+
+                      <p className="mt-3 font-medium">No activity recorded</p>
+
+                      <p className="mt-1 text-sm text-muted-foreground">
+                        System activity will appear here as users perform
+                        actions.
+                      </p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Pagination */}
+              {logTotal > 0 && (
+                <div className="flex flex-col gap-3 border-t pt-4 sm:flex-row sm:items-center sm:justify-between">
+                  <p className="text-sm text-muted-foreground">
+                    Showing{" "}
+                    <span className="font-medium text-foreground">
+                      {(logPage - 1) * logLimit + 1}
+                    </span>{" "}
+                    to{" "}
+                    <span className="font-medium text-foreground">
+                      {Math.min(logPage * logLimit, logTotal)}
+                    </span>{" "}
+                    of{" "}
+                    <span className="font-medium text-foreground">
+                      {logTotal}
+                    </span>{" "}
+                    activities
+                  </p>
+
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={logPage <= 1}
+                      onClick={() => setLogPage((prev) => prev - 1)}
+                    >
+                      Previous
+                    </Button>
+
+                    <div className="flex h-9 min-w-9 items-center justify-center rounded-md border bg-muted px-3 text-sm font-medium">
+                      {logPage}
+                    </div>
+
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={logPage >= Math.ceil(logTotal / logLimit)}
+                      onClick={() => setLogPage((prev) => prev + 1)}
+                    >
+                      Next
+                    </Button>
+                  </div>
+                </div>
+              )}
             </TabsContent>
           )}
         </Tabs>
