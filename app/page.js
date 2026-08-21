@@ -16,6 +16,7 @@ import {
   ArrowUpFromLine,
   Boxes,
   ChevronDown,
+  Download,
   FileText,
   PackageSearch,
   PackageX,
@@ -256,6 +257,9 @@ export default function VastraDrobeIMS() {
   const [movementPage, setMovementPage] = useState(1);
   const [movementLimit] = useState(20);
   const [movementTotal, setMovementTotal] = useState(0);
+  const [movementSearch, setMovementSearch] = useState("");
+  const [movementTypeFilter, setMovementTypeFilter] = useState("all");
+  const [movementWarehouseFilter, setMovementWarehouseFilter] = useState("all");
   const [movementForm, setMovementForm] = useState({
     productId: "",
     color: "",
@@ -486,13 +490,29 @@ export default function VastraDrobeIMS() {
 
   const loadStockMovements = async () => {
     try {
-      const data = await apiCall(
-        `/stock-movements/list?page=${movementPage}&limit=${movementLimit}`,
-      );
+      const params = new URLSearchParams({
+        page: String(movementPage),
+        limit: String(movementLimit),
+      });
 
-      setStockMovements(data.movements);
-      setMovementTotal(data.total);
+      if (movementSearch.trim()) {
+        params.set("search", movementSearch.trim());
+      }
+
+      if (movementTypeFilter !== "all") {
+        params.set("type", movementTypeFilter);
+      }
+
+      if (movementWarehouseFilter !== "all") {
+        params.set("warehouseId", movementWarehouseFilter);
+      }
+
+      const data = await apiCall(`/stock-movements/list?${params.toString()}`);
+
+      setStockMovements(data.movements || []);
+      setMovementTotal(data.total || 0);
     } catch (error) {
+      console.error("STOCK MOVEMENTS ERROR:", error);
       toast.error("Failed to load stock movements");
     }
   };
@@ -828,6 +848,15 @@ export default function VastraDrobeIMS() {
         referenceNumber: movementForm.referenceNumber,
         notes: movementForm.notes,
       });
+
+      if (
+        (movementForm.type === "sale" || movementForm.type === "return") &&
+        !movementForm.referenceNumber.trim()
+      ) {
+        toast.error(`Reference number is required for ${movementForm.type}.`);
+
+        return;
+      }
 
       toast.success("Stock movement recorded successfully");
       setShowMovementDialog(false);
@@ -1192,6 +1221,16 @@ export default function VastraDrobeIMS() {
       setIsLoggedIn(true);
     }
   }, []);
+
+  useEffect(() => {
+    loadStockMovements();
+  }, [
+    movementPage,
+    movementLimit,
+    movementSearch,
+    movementTypeFilter,
+    movementWarehouseFilter,
+  ]);
 
   // Load data when logged in and tab changes
   useEffect(() => {
@@ -1845,31 +1884,29 @@ export default function VastraDrobeIMS() {
 
           {/* Products Tab */}
           <TabsContent value="products" className="space-y-6">
-  {/* Products Header */}
-  <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-    <div>
-      <h2 className="text-2xl font-bold tracking-tight">
-        Products
-      </h2>
+            {/* Products Header */}
+            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+              <div>
+                <h2 className="text-2xl font-bold tracking-tight">Products</h2>
 
-      <p className="text-sm text-muted-foreground">
-        Manage your product catalog and variants
-      </p>
-    </div>
+                <p className="text-sm text-muted-foreground">
+                  Manage your product catalog and variants
+                </p>
+              </div>
 
-    {/* Keep your existing Add Product Dialog here */}
-    {currentUser?.role === "admin" && (
-      <div className="flex gap-2">
-        <Dialog
-          open={showProductDialog}
-          onOpenChange={setShowProductDialog}
-        >
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              Add Product
-            </Button>
-          </DialogTrigger>
+              {/* Keep your existing Add Product Dialog here */}
+              {currentUser?.role === "admin" && (
+                <div className="flex gap-2">
+                  <Dialog
+                    open={showProductDialog}
+                    onOpenChange={setShowProductDialog}
+                  >
+                    <DialogTrigger asChild>
+                      <Button>
+                        <Plus className="mr-2 h-4 w-4" />
+                        Add Product
+                      </Button>
+                    </DialogTrigger>
                     <DialogContent className="max-h-[90vh] overflow-y-auto">
                       <DialogHeader>
                         <DialogTitle>
@@ -2227,1290 +2264,1259 @@ export default function VastraDrobeIMS() {
                 </div>
               )}
             </div>
-             {/* Product Search */}
-  <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-    <div className="relative w-full max-w-md">
-      <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            {/* Product Search */}
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+              <div className="relative w-full max-w-md">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
 
-      <Input
-        placeholder="Search products..."
-        value={searchTerm}
-        onChange={(e) => {
-          setSearchTerm(e.target.value);
-          setProductPage(1);
-        }}
-        className="pl-9"
-      />
-    </div>
+                <Input
+                  placeholder="Search products..."
+                  value={searchTerm}
+                  onChange={(e) => {
+                    setSearchTerm(e.target.value);
+                    setProductPage(1);
+                  }}
+                  className="pl-9"
+                />
+              </div>
 
-    <Button
-      variant="outline"
-      onClick={loadProducts}
-      className="shrink-0"
-    >
-      <RefreshCw className="mr-2 h-4 w-4" />
-      Refresh
-    </Button>
-  </div>
+              <Button
+                variant="outline"
+                onClick={loadProducts}
+                className="shrink-0"
+              >
+                <RefreshCw className="mr-2 h-4 w-4" />
+                Refresh
+              </Button>
+            </div>
             <Card className="border-border/60 shadow-sm">
-  <CardHeader>
-    <div className="flex items-center justify-between">
-      <div>
-        <CardTitle>Product Catalog</CardTitle>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle>Product Catalog</CardTitle>
 
-        <CardDescription>
-          {productTotal || 0} products in your catalog
-        </CardDescription>
-      </div>
+                    <CardDescription>
+                      {productTotal || 0} products in your catalog
+                    </CardDescription>
+                  </div>
 
-      <Package className="h-5 w-5 text-muted-foreground" />
-    </div>
-  </CardHeader>
+                  <Package className="h-5 w-5 text-muted-foreground" />
+                </div>
+              </CardHeader>
               <CardContent className="p-0">
                 <Table>
                   <TableHeader>
-  <TableRow className="bg-muted/40">
-    <TableHead
-      className="cursor-pointer font-semibold"
-      onClick={() => handleSort("productId")}
-    >
-      Product ID{" "}
-      {sortField === "productId" &&
-        (sortOrder === "asc" ? "↑" : "↓")}
-    </TableHead>
+                    <TableRow className="bg-muted/40">
+                      <TableHead
+                        className="cursor-pointer font-semibold"
+                        onClick={() => handleSort("productId")}
+                      >
+                        Product ID{" "}
+                        {sortField === "productId" &&
+                          (sortOrder === "asc" ? "↑" : "↓")}
+                      </TableHead>
 
-    <TableHead
-      className="cursor-pointer font-semibold"
-      onClick={() => handleSort("name")}
-    >
-      Product{" "}
-      {sortField === "name" &&
-        (sortOrder === "asc" ? "↑" : "↓")}
-    </TableHead>
+                      <TableHead
+                        className="cursor-pointer font-semibold"
+                        onClick={() => handleSort("name")}
+                      >
+                        Product{" "}
+                        {sortField === "name" &&
+                          (sortOrder === "asc" ? "↑" : "↓")}
+                      </TableHead>
 
-    <TableHead className="font-semibold">
-      Category
-    </TableHead>
+                      <TableHead className="font-semibold">Category</TableHead>
 
-    <TableHead className="font-semibold">
-      Brand
-    </TableHead>
+                      <TableHead className="font-semibold">Brand</TableHead>
 
-    <TableHead
-      className="cursor-pointer font-semibold"
-      onClick={() => handleSort("price")}
-    >
-      Price{" "}
-      {sortField === "price" &&
-        (sortOrder === "asc" ? "↑" : "↓")}
-    </TableHead>
+                      <TableHead
+                        className="cursor-pointer font-semibold"
+                        onClick={() => handleSort("price")}
+                      >
+                        Price{" "}
+                        {sortField === "price" &&
+                          (sortOrder === "asc" ? "↑" : "↓")}
+                      </TableHead>
 
-    <TableHead className="font-semibold">
-      Variants
-    </TableHead>
+                      <TableHead className="font-semibold">Variants</TableHead>
 
-    <TableHead
-      className="cursor-pointer font-semibold"
-      onClick={() => handleSort("createdAt")}
-    >
-      Created{" "}
-      {sortField === "createdAt" &&
-        (sortOrder === "asc" ? "↑" : "↓")}
-    </TableHead>
+                      <TableHead
+                        className="cursor-pointer font-semibold"
+                        onClick={() => handleSort("createdAt")}
+                      >
+                        Created{" "}
+                        {sortField === "createdAt" &&
+                          (sortOrder === "asc" ? "↑" : "↓")}
+                      </TableHead>
 
-    {currentUser?.role === "admin" && (
-      <TableHead className="text-right font-semibold">
-        Actions
-      </TableHead>
-    )}
-  </TableRow>
-</TableHeader>
+                      {currentUser?.role === "admin" && (
+                        <TableHead className="text-right font-semibold">
+                          Actions
+                        </TableHead>
+                      )}
+                    </TableRow>
+                  </TableHeader>
                   <TableBody>
-  {sortedProducts.length > 0 ? (
-    sortedProducts.map((product, ind) => {
-      return (
-        <React.Fragment key={`${product.id}-${ind}`}>
-          <TableRow
-            key={`${product.id}-${ind}`}
-            className="group hover:bg-muted/30"
-          >
-            {/* Product ID */}
-            <TableCell>
-              <span className="font-mono text-xs text-muted-foreground">
-                #{product.productId}
-              </span>
-            </TableCell>
-
-            {/* Product */}
-            <TableCell>
-              <div className="min-w-0">
-                <p className="font-medium">
-                  {product.name}
-                </p>
-
-                {product.description && (
-                  <p className="mt-1 max-w-[260px] truncate text-xs text-muted-foreground">
-                    {product.description}
-                  </p>
-                )}
-              </div>
-            </TableCell>
-
-            {/* Category */}
-            <TableCell>
-              <div className="space-y-1">
-                <p className="text-sm capitalize">
-                  {product.category}
-                </p>
-
-                {product.subcategory && (
-                  <p className="text-xs capitalize text-muted-foreground">
-                    {product.subcategory}
-                  </p>
-                )}
-              </div>
-            </TableCell>
-
-            {/* Brand */}
-            <TableCell>
-              <span className="capitalize">
-                {product.brand || "-"}
-              </span>
-            </TableCell>
-
-            {/* Price */}
-            <TableCell>
-              <span className="font-medium">
-                ₹{product.price?.toLocaleString() || "0"}
-              </span>
-
-              {product.mrp && product.mrp > product.price && (
-                <p className="text-xs text-muted-foreground line-through">
-                  ₹{product.mrp.toLocaleString()}
-                </p>
-              )}
-            </TableCell>
-
-            {/* Variants */}
-            <TableCell>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-8 px-2"
-                onClick={() =>
-                  setExpandedProduct(
-                    expandedProduct === product.productId
-                      ? null
-                      : product.productId,
-                  )
-                }
-              >
-                <Boxes className="mr-2 h-4 w-4 text-muted-foreground" />
-
-                {product.variants?.length || 0}
-
-                <span className="ml-1 text-muted-foreground">
-                  variants
-                </span>
-
-                <ChevronDown
-                  className={`ml-2 h-4 w-4 transition-transform ${
-                    expandedProduct === product.productId
-                      ? "rotate-180"
-                      : ""
-                  }`}
-                />
-              </Button>
-            </TableCell>
-
-            {/* Created */}
-            <TableCell>
-              <span className="text-sm text-muted-foreground">
-                {new Date(
-                  product.createdAt,
-                ).toLocaleDateString()}
-              </span>
-            </TableCell>
-
-            {/* Actions */}
-            {currentUser?.role === "admin" && (
-              <TableCell className="text-right">
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  className="h-8 w-8"
-                  onClick={() => editProduct(product)}
-                >
-                  <Pencil className="h-4 w-4" />
-                </Button>
-              </TableCell>
-            )}
-          </TableRow>
-
-          {/* Expanded variants */}
-          {expandedProduct === product.productId &&
-            product.variants?.length > 0 && (
-              <TableRow>
-                <TableCell
-                  colSpan={currentUser?.role === "admin" ? 8 : 7}
-                  className="bg-muted/20 p-0"
-                >
-                  <div className="border-t px-6 py-5">
-                    <div className="mb-4 flex items-center justify-between">
-                      <div>
-                        <h4 className="font-semibold">
-                          Product Variants
-                        </h4>
-
-                        <p className="text-xs text-muted-foreground">
-                          {product.variants.length} color{" "}
-                          {product.variants.length === 1
-                            ? "variant"
-                            : "variants"}{" "}
-                          available
-                        </p>
-                      </div>
-
-                      <Badge variant="secondary">
-                        {product.variants.length} Variants
-                      </Badge>
-                    </div>
-
-                    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                      {product.variants.map(
-                        (variant, variantIndex) => {
-                          const hasDesigns =
-                            variant.designs &&
-                            variant.designs.length > 0;
-
-                          return (
-                            <div
-                              key={`${variant.color}-${variantIndex}`}
-                              className="rounded-xl border bg-background p-4 shadow-sm"
+                    {sortedProducts.length > 0 ? (
+                      sortedProducts.map((product, ind) => {
+                        return (
+                          <React.Fragment key={`${product.id}-${ind}`}>
+                            <TableRow
+                              key={`${product.id}-${ind}`}
+                              className="group hover:bg-muted/30"
                             >
-                              <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-2">
-                                  <div className="h-3 w-3 rounded-full border bg-muted" />
+                              {/* Product ID */}
+                              <TableCell>
+                                <span className="font-mono text-xs text-muted-foreground">
+                                  #{product.productId}
+                                </span>
+                              </TableCell>
 
-                                  <span className="font-medium capitalize">
-                                    {variant.color}
-                                  </span>
-                                </div>
+                              {/* Product */}
+                              <TableCell>
+                                <div className="min-w-0">
+                                  <p className="font-medium">{product.name}</p>
 
-                                <Badge variant="outline">
-                                  {hasDesigns
-                                    ? `${variant.designs.length} Designs`
-                                    : `${variant.sizes?.length || 0} Sizes`}
-                                </Badge>
-                              </div>
-
-                              {!hasDesigns && (
-                                <div className="mt-4">
-                                  <p className="mb-2 text-xs font-medium text-muted-foreground">
-                                    Available Sizes
-                                  </p>
-
-                                  <div className="flex flex-wrap gap-2">
-                                    {variant.sizes?.length ? (
-                                      variant.sizes.map(
-                                        (size, sizeIndex) => (
-                                          <Badge
-                                            key={`${size}-${sizeIndex}`}
-                                            variant="secondary"
-                                            className="font-normal"
-                                          >
-                                            {size}
-                                          </Badge>
-                                        ),
-                                      )
-                                    ) : (
-                                      <span className="text-xs text-muted-foreground">
-                                        No sizes configured
-                                      </span>
-                                    )}
-                                  </div>
-                                </div>
-                              )}
-
-                              {hasDesigns && (
-                                <div className="mt-4 space-y-3">
-                                  <p className="text-xs font-medium text-muted-foreground">
-                                    Designs
-                                  </p>
-
-                                  {variant.designs.map(
-                                    (design, designIndex) => (
-                                      <div
-                                        key={`${design.design}-${designIndex}`}
-                                        className="rounded-lg bg-muted/50 p-3"
-                                      >
-                                        <div className="flex items-center justify-between">
-                                          <span className="text-sm font-medium">
-                                            {design.design}
-                                          </span>
-
-                                          <span className="text-xs text-muted-foreground">
-                                            {design.sizes?.length || 0} sizes
-                                          </span>
-                                        </div>
-
-                                        <div className="mt-2 flex flex-wrap gap-1.5">
-                                          {design.sizes?.length ? (
-                                            design.sizes.map(
-                                              (size, sizeIndex) => (
-                                                <Badge
-                                                  key={`${size}-${sizeIndex}`}
-                                                  variant="outline"
-                                                  className="text-xs font-normal"
-                                                >
-                                                  {size}
-                                                </Badge>
-                                              ),
-                                            )
-                                          ) : (
-                                            <span className="text-xs text-muted-foreground">
-                                              No sizes configured
-                                            </span>
-                                          )}
-                                        </div>
-                                      </div>
-                                    ),
+                                  {product.description && (
+                                    <p className="mt-1 max-w-[260px] truncate text-xs text-muted-foreground">
+                                      {product.description}
+                                    </p>
                                   )}
                                 </div>
+                              </TableCell>
+
+                              {/* Category */}
+                              <TableCell>
+                                <div className="space-y-1">
+                                  <p className="text-sm capitalize">
+                                    {product.category}
+                                  </p>
+
+                                  {product.subcategory && (
+                                    <p className="text-xs capitalize text-muted-foreground">
+                                      {product.subcategory}
+                                    </p>
+                                  )}
+                                </div>
+                              </TableCell>
+
+                              {/* Brand */}
+                              <TableCell>
+                                <span className="capitalize">
+                                  {product.brand || "-"}
+                                </span>
+                              </TableCell>
+
+                              {/* Price */}
+                              <TableCell>
+                                <span className="font-medium">
+                                  ₹{product.price?.toLocaleString() || "0"}
+                                </span>
+
+                                {product.mrp && product.mrp > product.price && (
+                                  <p className="text-xs text-muted-foreground line-through">
+                                    ₹{product.mrp.toLocaleString()}
+                                  </p>
+                                )}
+                              </TableCell>
+
+                              {/* Variants */}
+                              <TableCell>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-8 px-2"
+                                  onClick={() =>
+                                    setExpandedProduct(
+                                      expandedProduct === product.productId
+                                        ? null
+                                        : product.productId,
+                                    )
+                                  }
+                                >
+                                  <Boxes className="mr-2 h-4 w-4 text-muted-foreground" />
+
+                                  {product.variants?.length || 0}
+
+                                  <span className="ml-1 text-muted-foreground">
+                                    variants
+                                  </span>
+
+                                  <ChevronDown
+                                    className={`ml-2 h-4 w-4 transition-transform ${
+                                      expandedProduct === product.productId
+                                        ? "rotate-180"
+                                        : ""
+                                    }`}
+                                  />
+                                </Button>
+                              </TableCell>
+
+                              {/* Created */}
+                              <TableCell>
+                                <span className="text-sm text-muted-foreground">
+                                  {new Date(
+                                    product.createdAt,
+                                  ).toLocaleDateString()}
+                                </span>
+                              </TableCell>
+
+                              {/* Actions */}
+                              {currentUser?.role === "admin" && (
+                                <TableCell className="text-right">
+                                  <Button
+                                    size="icon"
+                                    variant="ghost"
+                                    className="h-8 w-8"
+                                    onClick={() => editProduct(product)}
+                                  >
+                                    <Pencil className="h-4 w-4" />
+                                  </Button>
+                                </TableCell>
                               )}
+                            </TableRow>
+
+                            {/* Expanded variants */}
+                            {expandedProduct === product.productId &&
+                              product.variants?.length > 0 && (
+                                <TableRow>
+                                  <TableCell
+                                    colSpan={
+                                      currentUser?.role === "admin" ? 8 : 7
+                                    }
+                                    className="bg-muted/20 p-0"
+                                  >
+                                    <div className="border-t px-6 py-5">
+                                      <div className="mb-4 flex items-center justify-between">
+                                        <div>
+                                          <h4 className="font-semibold">
+                                            Product Variants
+                                          </h4>
+
+                                          <p className="text-xs text-muted-foreground">
+                                            {product.variants.length} color{" "}
+                                            {product.variants.length === 1
+                                              ? "variant"
+                                              : "variants"}{" "}
+                                            available
+                                          </p>
+                                        </div>
+
+                                        <Badge variant="secondary">
+                                          {product.variants.length} Variants
+                                        </Badge>
+                                      </div>
+
+                                      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                                        {product.variants.map(
+                                          (variant, variantIndex) => {
+                                            const hasDesigns =
+                                              variant.designs &&
+                                              variant.designs.length > 0;
+
+                                            return (
+                                              <div
+                                                key={`${variant.color}-${variantIndex}`}
+                                                className="rounded-xl border bg-background p-4 shadow-sm"
+                                              >
+                                                <div className="flex items-center justify-between">
+                                                  <div className="flex items-center gap-2">
+                                                    <div className="h-3 w-3 rounded-full border bg-muted" />
+
+                                                    <span className="font-medium capitalize">
+                                                      {variant.color}
+                                                    </span>
+                                                  </div>
+
+                                                  <Badge variant="outline">
+                                                    {hasDesigns
+                                                      ? `${variant.designs.length} Designs`
+                                                      : `${variant.sizes?.length || 0} Sizes`}
+                                                  </Badge>
+                                                </div>
+
+                                                {!hasDesigns && (
+                                                  <div className="mt-4">
+                                                    <p className="mb-2 text-xs font-medium text-muted-foreground">
+                                                      Available Sizes
+                                                    </p>
+
+                                                    <div className="flex flex-wrap gap-2">
+                                                      {variant.sizes?.length ? (
+                                                        variant.sizes.map(
+                                                          (size, sizeIndex) => (
+                                                            <Badge
+                                                              key={`${size}-${sizeIndex}`}
+                                                              variant="secondary"
+                                                              className="font-normal"
+                                                            >
+                                                              {size}
+                                                            </Badge>
+                                                          ),
+                                                        )
+                                                      ) : (
+                                                        <span className="text-xs text-muted-foreground">
+                                                          No sizes configured
+                                                        </span>
+                                                      )}
+                                                    </div>
+                                                  </div>
+                                                )}
+
+                                                {hasDesigns && (
+                                                  <div className="mt-4 space-y-3">
+                                                    <p className="text-xs font-medium text-muted-foreground">
+                                                      Designs
+                                                    </p>
+
+                                                    {variant.designs.map(
+                                                      (design, designIndex) => (
+                                                        <div
+                                                          key={`${design.design}-${designIndex}`}
+                                                          className="rounded-lg bg-muted/50 p-3"
+                                                        >
+                                                          <div className="flex items-center justify-between">
+                                                            <span className="text-sm font-medium">
+                                                              {design.design}
+                                                            </span>
+
+                                                            <span className="text-xs text-muted-foreground">
+                                                              {design.sizes
+                                                                ?.length ||
+                                                                0}{" "}
+                                                              sizes
+                                                            </span>
+                                                          </div>
+
+                                                          <div className="mt-2 flex flex-wrap gap-1.5">
+                                                            {design.sizes
+                                                              ?.length ? (
+                                                              design.sizes.map(
+                                                                (
+                                                                  size,
+                                                                  sizeIndex,
+                                                                ) => (
+                                                                  <Badge
+                                                                    key={`${size}-${sizeIndex}`}
+                                                                    variant="outline"
+                                                                    className="text-xs font-normal"
+                                                                  >
+                                                                    {size}
+                                                                  </Badge>
+                                                                ),
+                                                              )
+                                                            ) : (
+                                                              <span className="text-xs text-muted-foreground">
+                                                                No sizes
+                                                                configured
+                                                              </span>
+                                                            )}
+                                                          </div>
+                                                        </div>
+                                                      ),
+                                                    )}
+                                                  </div>
+                                                )}
+                                              </div>
+                                            );
+                                          },
+                                        )}
+                                      </div>
+                                    </div>
+                                  </TableCell>
+                                </TableRow>
+                              )}
+                          </React.Fragment>
+                        );
+                      })
+                    ) : (
+                      <TableRow>
+                        <TableCell
+                          colSpan={currentUser?.role === "admin" ? 8 : 7}
+                          className="h-48"
+                        >
+                          <div className="flex flex-col items-center justify-center text-center">
+                            <div className="rounded-full bg-muted p-3">
+                              <PackageSearch className="h-6 w-6 text-muted-foreground" />
                             </div>
-                          );
-                        },
-                      )}
-                    </div>
-                  </div>
-                </TableCell>
-              </TableRow>
-            )}
-        </React.Fragment>
-      );
-    })
-  ) : (
-    <TableRow>
-      <TableCell
-        colSpan={currentUser?.role === "admin" ? 8 : 7}
-        className="h-48"
-      >
-        <div className="flex flex-col items-center justify-center text-center">
-          <div className="rounded-full bg-muted p-3">
-            <PackageSearch className="h-6 w-6 text-muted-foreground" />
-          </div>
 
-          <p className="mt-3 font-medium">
-            No products found
-          </p>
+                            <p className="mt-3 font-medium">
+                              No products found
+                            </p>
 
-          <p className="mt-1 text-sm text-muted-foreground">
-            {searchTerm
-              ? `No products match "${searchTerm}".`
-              : "Your product catalog is empty."}
-          </p>
+                            <p className="mt-1 text-sm text-muted-foreground">
+                              {searchTerm
+                                ? `No products match "${searchTerm}".`
+                                : "Your product catalog is empty."}
+                            </p>
 
-          {searchTerm && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="mt-2"
-              onClick={() => {
-                setSearchTerm("");
-                setProductPage(1);
-              }}
-            >
-              Clear search
-            </Button>
-          )}
-        </div>
-      </TableCell>
-    </TableRow>
-  )}
-</TableBody>
+                            {searchTerm && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="mt-2"
+                                onClick={() => {
+                                  setSearchTerm("");
+                                  setProductPage(1);
+                                }}
+                              >
+                                Clear search
+                              </Button>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
                 </Table>
               </CardContent>
             </Card>
 
             {productTotal > 0 && (
-  <div className="flex flex-col gap-3 border-t pt-4 sm:flex-row sm:items-center sm:justify-between">
-    <div className="text-sm text-muted-foreground">
-      Showing{" "}
-      <span className="font-medium text-foreground">
-        {(productPage - 1) * productLimit + 1}
-      </span>{" "}
-      to{" "}
-      <span className="font-medium text-foreground">
-        {Math.min(productPage * productLimit, productTotal)}
-      </span>{" "}
-      of{" "}
-      <span className="font-medium text-foreground">
-        {productTotal}
-      </span>{" "}
-      products
-    </div>
+              <div className="flex flex-col gap-3 border-t pt-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="text-sm text-muted-foreground">
+                  Showing{" "}
+                  <span className="font-medium text-foreground">
+                    {(productPage - 1) * productLimit + 1}
+                  </span>{" "}
+                  to{" "}
+                  <span className="font-medium text-foreground">
+                    {Math.min(productPage * productLimit, productTotal)}
+                  </span>{" "}
+                  of{" "}
+                  <span className="font-medium text-foreground">
+                    {productTotal}
+                  </span>{" "}
+                  products
+                </div>
 
-    <div className="flex items-center gap-2">
-      <Button
-        variant="outline"
-        size="sm"
-        disabled={productPage === 1}
-        onClick={() =>
-          setProductPage((prev) => prev - 1)
-        }
-      >
-        Previous
-      </Button>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={productPage === 1}
+                    onClick={() => setProductPage((prev) => prev - 1)}
+                  >
+                    Previous
+                  </Button>
 
-      <div className="flex h-9 min-w-9 items-center justify-center rounded-md border bg-muted px-3 text-sm font-medium">
-        {productPage}
-      </div>
+                  <div className="flex h-9 min-w-9 items-center justify-center rounded-md border bg-muted px-3 text-sm font-medium">
+                    {productPage}
+                  </div>
 
-      <Button
-        variant="outline"
-        size="sm"
-        disabled={
-          productPage >=
-          Math.ceil(productTotal / productLimit)
-        }
-        onClick={() =>
-          setProductPage((prev) => prev + 1)
-        }
-      >
-        Next
-      </Button>
-    </div>
-  </div>
-)}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={
+                      productPage >= Math.ceil(productTotal / productLimit)
+                    }
+                    onClick={() => setProductPage((prev) => prev + 1)}
+                  >
+                    Next
+                  </Button>
+                </div>
+              </div>
+            )}
           </TabsContent>
 
           {/* Inventory Tab */}
           <TabsContent value="inventory" className="space-y-4">
             {/* Inventory Header */}
-<div className="flex flex-col gap-5">
-  {/* Title + Add Inventory */}
-  <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-    <div>
-      <h2 className="text-2xl font-bold tracking-tight">
-        Inventory
-      </h2>
+            <div className="flex flex-col gap-5">
+              {/* Title + Add Inventory */}
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <h2 className="text-2xl font-bold tracking-tight">
+                    Inventory
+                  </h2>
 
-      <p className="text-sm text-muted-foreground">
-        Manage stock levels across your warehouses
-      </p>
-    </div>
+                  <p className="text-sm text-muted-foreground">
+                    Manage stock levels across your warehouses
+                  </p>
+                </div>
 
-    <div className="flex gap-2">
-      {/* Add Inventory */}
-      <Dialog
-        open={showAddInventoryDialog}
-        onOpenChange={setShowAddInventoryDialog}
-      >
-        <DialogTrigger asChild>
-          <Button>
-            <Plus className="mr-2 h-4 w-4" />
-            Add Inventory
-          </Button>
-        </DialogTrigger>
-                  <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
-  <DialogHeader>
-    <DialogTitle className="text-xl">
-      Add Inventory
-    </DialogTitle>
-
-    <DialogDescription>
-      Add stock for a specific product, variant, and warehouse.
-    </DialogDescription>
-  </DialogHeader>
-
-  <form onSubmit={addInventory} className="space-y-6">
-    {/* Product & Warehouse */}
-    <div className="space-y-4">
-      <div>
-        <p className="text-sm font-semibold">
-          Location & Product
-        </p>
-
-        <p className="text-xs text-muted-foreground">
-          Choose where this stock will be stored.
-        </p>
-      </div>
-
-      <div className="grid gap-4 sm:grid-cols-2">
-        {/* Product */}
-        <div className="space-y-2">
-          <Label>Product</Label>
-
-          <Select
-            value={String(
-              addInventoryForm.productId || "",
-            )}
-            onValueChange={(val) =>
-              setAddInventoryForm({
-                ...addInventoryForm,
-                productId: parseInt(val),
-                color: "",
-                design: "",
-                size: "",
-              })
-            }
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Select product" />
-            </SelectTrigger>
-
-            <SelectContent>
-              {products.map((product) => (
-                <SelectItem
-                  key={product.productId}
-                  value={String(product.productId)}
-                >
-                  {product.name} (#{product.productId})
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        {/* Warehouse */}
-        <div className="space-y-2">
-          <Label>Warehouse</Label>
-
-          <Select
-            value={addInventoryForm.warehouseId}
-            onValueChange={(val) =>
-              setAddInventoryForm({
-                ...addInventoryForm,
-                warehouseId: val,
-              })
-            }
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Select warehouse" />
-            </SelectTrigger>
-
-            <SelectContent>
-              {warehouses.map((warehouse) => (
-                <SelectItem
-                  key={warehouse._id}
-                  value={warehouse._id}
-                >
-                  {warehouse.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
-    </div>
-
-    {/* Variant */}
-    <div className="space-y-4">
-      <div>
-        <p className="text-sm font-semibold">
-          Product Variant
-        </p>
-
-        <p className="text-xs text-muted-foreground">
-          Select the color, design, and size.
-        </p>
-      </div>
-
-      <div className="grid gap-4 sm:grid-cols-2">
-        {/* Color */}
-        <div className="space-y-2">
-          <Label>Color</Label>
-
-          <Select
-            value={addInventoryForm.color}
-            onValueChange={(value) =>
-              setAddInventoryForm({
-                ...addInventoryForm,
-                color: value,
-                design: "",
-                size: "",
-              })
-            }
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Select color" />
-            </SelectTrigger>
-
-            <SelectContent>
-              {availableColors.map((variant) => (
-                <SelectItem
-                  key={variant.color}
-                  value={variant.color}
-                >
-                  {variant.color}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        {/* Design */}
-        {hasDesigns && (
-          <div className="space-y-2">
-            <Label>Design</Label>
-
-            <Select
-              value={addInventoryForm.design}
-              onValueChange={(value) =>
-                setAddInventoryForm({
-                  ...addInventoryForm,
-                  design: value,
-                  size: "",
-                })
-              }
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select design" />
-              </SelectTrigger>
-
-              <SelectContent>
-                {availableDesigns.map((design) => (
-                  <SelectItem
-                    key={design.design}
-                    value={design.design}
+                <div className="flex gap-2">
+                  {/* Add Inventory */}
+                  <Dialog
+                    open={showAddInventoryDialog}
+                    onOpenChange={setShowAddInventoryDialog}
                   >
-                    {design.design}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        )}
+                    <DialogTrigger asChild>
+                      <Button>
+                        <Plus className="mr-2 h-4 w-4" />
+                        Add Inventory
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+                      <DialogHeader>
+                        <DialogTitle className="text-xl">
+                          Add Inventory
+                        </DialogTitle>
 
-        {/* Size */}
-        <div className="space-y-2">
-          <Label>Size</Label>
+                        <DialogDescription>
+                          Add stock for a specific product, variant, and
+                          warehouse.
+                        </DialogDescription>
+                      </DialogHeader>
 
-          <Select
-            value={addInventoryForm.size}
-            onValueChange={(value) =>
-              setAddInventoryForm({
-                ...addInventoryForm,
-                size: value,
-              })
-            }
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Select size" />
-            </SelectTrigger>
+                      <form onSubmit={addInventory} className="space-y-6">
+                        {/* Product & Warehouse */}
+                        <div className="space-y-4">
+                          <div>
+                            <p className="text-sm font-semibold">
+                              Location & Product
+                            </p>
 
-            <SelectContent>
-              {availableSizes.map((size) => (
-                <SelectItem
-                  key={size}
-                  value={size}
+                            <p className="text-xs text-muted-foreground">
+                              Choose where this stock will be stored.
+                            </p>
+                          </div>
+
+                          <div className="grid gap-4 sm:grid-cols-2">
+                            {/* Product */}
+                            <div className="space-y-2">
+                              <Label>Product</Label>
+
+                              <Select
+                                value={String(addInventoryForm.productId || "")}
+                                onValueChange={(val) =>
+                                  setAddInventoryForm({
+                                    ...addInventoryForm,
+                                    productId: parseInt(val),
+                                    color: "",
+                                    design: "",
+                                    size: "",
+                                  })
+                                }
+                              >
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select product" />
+                                </SelectTrigger>
+
+                                <SelectContent>
+                                  {products.map((product) => (
+                                    <SelectItem
+                                      key={product.productId}
+                                      value={String(product.productId)}
+                                    >
+                                      {product.name} (#{product.productId})
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+
+                            {/* Warehouse */}
+                            <div className="space-y-2">
+                              <Label>Warehouse</Label>
+
+                              <Select
+                                value={addInventoryForm.warehouseId}
+                                onValueChange={(val) =>
+                                  setAddInventoryForm({
+                                    ...addInventoryForm,
+                                    warehouseId: val,
+                                  })
+                                }
+                              >
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select warehouse" />
+                                </SelectTrigger>
+
+                                <SelectContent>
+                                  {warehouses.map((warehouse) => (
+                                    <SelectItem
+                                      key={warehouse._id}
+                                      value={warehouse._id}
+                                    >
+                                      {warehouse.name}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Variant */}
+                        <div className="space-y-4">
+                          <div>
+                            <p className="text-sm font-semibold">
+                              Product Variant
+                            </p>
+
+                            <p className="text-xs text-muted-foreground">
+                              Select the color, design, and size.
+                            </p>
+                          </div>
+
+                          <div className="grid gap-4 sm:grid-cols-2">
+                            {/* Color */}
+                            <div className="space-y-2">
+                              <Label>Color</Label>
+
+                              <Select
+                                value={addInventoryForm.color}
+                                onValueChange={(value) =>
+                                  setAddInventoryForm({
+                                    ...addInventoryForm,
+                                    color: value,
+                                    design: "",
+                                    size: "",
+                                  })
+                                }
+                              >
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select color" />
+                                </SelectTrigger>
+
+                                <SelectContent>
+                                  {availableColors.map((variant) => (
+                                    <SelectItem
+                                      key={variant.color}
+                                      value={variant.color}
+                                    >
+                                      {variant.color}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+
+                            {/* Design */}
+                            {hasDesigns && (
+                              <div className="space-y-2">
+                                <Label>Design</Label>
+
+                                <Select
+                                  value={addInventoryForm.design}
+                                  onValueChange={(value) =>
+                                    setAddInventoryForm({
+                                      ...addInventoryForm,
+                                      design: value,
+                                      size: "",
+                                    })
+                                  }
+                                >
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Select design" />
+                                  </SelectTrigger>
+
+                                  <SelectContent>
+                                    {availableDesigns.map((design) => (
+                                      <SelectItem
+                                        key={design.design}
+                                        value={design.design}
+                                      >
+                                        {design.design}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                            )}
+
+                            {/* Size */}
+                            <div className="space-y-2">
+                              <Label>Size</Label>
+
+                              <Select
+                                value={addInventoryForm.size}
+                                onValueChange={(value) =>
+                                  setAddInventoryForm({
+                                    ...addInventoryForm,
+                                    size: value,
+                                  })
+                                }
+                              >
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select size" />
+                                </SelectTrigger>
+
+                                <SelectContent>
+                                  {availableSizes.map((size) => (
+                                    <SelectItem key={size} value={size}>
+                                      {size}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Stock */}
+                        <div className="space-y-4">
+                          <div>
+                            <p className="text-sm font-semibold">
+                              Stock Settings
+                            </p>
+
+                            <p className="text-xs text-muted-foreground">
+                              Set the initial quantity and reorder thresholds.
+                            </p>
+                          </div>
+
+                          {/* Initial Quantity */}
+                          <div className="space-y-2">
+                            <Label>Initial Quantity</Label>
+
+                            <Input
+                              type="number"
+                              value={addInventoryForm.quantity}
+                              onChange={(e) =>
+                                setAddInventoryForm({
+                                  ...addInventoryForm,
+                                  quantity: parseInt(e.target.value),
+                                })
+                              }
+                              required
+                              min="0"
+                              placeholder="0"
+                            />
+                          </div>
+
+                          <div className="grid gap-4 sm:grid-cols-2">
+                            {/* Reorder Level */}
+                            <div className="space-y-2">
+                              <Label>Reorder Level</Label>
+
+                              <Input
+                                type="number"
+                                value={addInventoryForm.reorderLevel}
+                                onChange={(e) =>
+                                  setAddInventoryForm({
+                                    ...addInventoryForm,
+                                    reorderLevel: parseInt(e.target.value),
+                                  })
+                                }
+                                required
+                                min="0"
+                                placeholder="5"
+                              />
+
+                              <p className="text-xs text-muted-foreground">
+                                Alert when stock reaches this level.
+                              </p>
+                            </div>
+
+                            {/* Reorder Quantity */}
+                            <div className="space-y-2">
+                              <Label>Reorder Quantity</Label>
+
+                              <Input
+                                type="number"
+                                value={addInventoryForm.reorderQuantity}
+                                onChange={(e) =>
+                                  setAddInventoryForm({
+                                    ...addInventoryForm,
+                                    reorderQuantity: parseInt(e.target.value),
+                                  })
+                                }
+                                required
+                                min="0"
+                                placeholder="20"
+                              />
+
+                              <p className="text-xs text-muted-foreground">
+                                Suggested quantity when reordering.
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Submit */}
+                        <div className="flex justify-end gap-2 border-t pt-4">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => setShowAddInventoryDialog(false)}
+                          >
+                            Cancel
+                          </Button>
+
+                          <Button type="submit">
+                            <Plus className="mr-2 h-4 w-4" />
+                            Add Inventory
+                          </Button>
+                        </div>
+                      </form>
+                    </DialogContent>
+                  </Dialog>
+
+                  {/* Refresh */}
+                  <Button
+                    onClick={loadInventory}
+                    variant="outline"
+                    size="icon"
+                    title="Refresh inventory"
+                  >
+                    <RefreshCw className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+
+              {/* Filters */}
+              <div className="flex flex-col gap-3 rounded-xl border bg-muted/20 p-4 md:flex-row md:items-center">
+                {/* Search */}
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+
+                  <Input
+                    placeholder="Search products..."
+                    value={inventorySearch}
+                    onChange={(e) => setInventorySearch(e.target.value)}
+                    className="pl-9"
+                  />
+                </div>
+
+                {/* Stock Filter */}
+                <Select
+                  value={inventoryFilter}
+                  onValueChange={setInventoryFilter}
                 >
-                  {size}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
-    </div>
+                  <SelectTrigger className="w-full md:w-40">
+                    <SelectValue placeholder="Stock status" />
+                  </SelectTrigger>
 
-    {/* Stock */}
-    <div className="space-y-4">
-      <div>
-        <p className="text-sm font-semibold">
-          Stock Settings
-        </p>
+                  <SelectContent>
+                    <SelectItem value="all">All Stock</SelectItem>
 
-        <p className="text-xs text-muted-foreground">
-          Set the initial quantity and reorder thresholds.
-        </p>
-      </div>
+                    <SelectItem value="low">Low Stock</SelectItem>
+                  </SelectContent>
+                </Select>
 
-      {/* Initial Quantity */}
-      <div className="space-y-2">
-        <Label>Initial Quantity</Label>
+                {/* Warehouse Filter */}
+                <Select
+                  value={selectedWarehouse}
+                  onValueChange={setSelectedWarehouse}
+                >
+                  <SelectTrigger className="w-full md:w-48">
+                    <SelectValue placeholder="All Warehouses" />
+                  </SelectTrigger>
 
-        <Input
-          type="number"
-          value={addInventoryForm.quantity}
-          onChange={(e) =>
-            setAddInventoryForm({
-              ...addInventoryForm,
-              quantity: parseInt(e.target.value),
-            })
-          }
-          required
-          min="0"
-          placeholder="0"
-        />
-      </div>
+                  <SelectContent>
+                    <SelectItem value="all">All Warehouses</SelectItem>
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        {/* Reorder Level */}
-        <div className="space-y-2">
-          <Label>Reorder Level</Label>
-
-          <Input
-            type="number"
-            value={addInventoryForm.reorderLevel}
-            onChange={(e) =>
-              setAddInventoryForm({
-                ...addInventoryForm,
-                reorderLevel: parseInt(
-                  e.target.value,
-                ),
-              })
-            }
-            required
-            min="0"
-            placeholder="5"
-          />
-
-          <p className="text-xs text-muted-foreground">
-            Alert when stock reaches this level.
-          </p>
-        </div>
-
-        {/* Reorder Quantity */}
-        <div className="space-y-2">
-          <Label>Reorder Quantity</Label>
-
-          <Input
-            type="number"
-            value={addInventoryForm.reorderQuantity}
-            onChange={(e) =>
-              setAddInventoryForm({
-                ...addInventoryForm,
-                reorderQuantity: parseInt(
-                  e.target.value,
-                ),
-              })
-            }
-            required
-            min="0"
-            placeholder="20"
-          />
-
-          <p className="text-xs text-muted-foreground">
-            Suggested quantity when reordering.
-          </p>
-        </div>
-      </div>
-    </div>
-
-    {/* Submit */}
-    <div className="flex justify-end gap-2 border-t pt-4">
-      <Button
-        type="button"
-        variant="outline"
-        onClick={() =>
-          setShowAddInventoryDialog(false)
-        }
-      >
-        Cancel
-      </Button>
-
-      <Button type="submit">
-        <Plus className="mr-2 h-4 w-4" />
-        Add Inventory
-      </Button>
-    </div>
-  </form>
-</DialogContent>
-                </Dialog>
-
-      {/* Refresh */}
-      <Button
-        onClick={loadInventory}
-        variant="outline"
-        size="icon"
-        title="Refresh inventory"
-      >
-        <RefreshCw className="h-4 w-4" />
-      </Button>
-    </div>
-  </div>
-
-  {/* Filters */}
-  <div className="flex flex-col gap-3 rounded-xl border bg-muted/20 p-4 md:flex-row md:items-center">
-    {/* Search */}
-    <div className="relative flex-1">
-      <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-
-      <Input
-        placeholder="Search products..."
-        value={inventorySearch}
-        onChange={(e) => setInventorySearch(e.target.value)}
-        className="pl-9"
-      />
-    </div>
-
-    {/* Stock Filter */}
-    <Select
-      value={inventoryFilter}
-      onValueChange={setInventoryFilter}
-    >
-      <SelectTrigger className="w-full md:w-40">
-        <SelectValue placeholder="Stock status" />
-      </SelectTrigger>
-
-      <SelectContent>
-        <SelectItem value="all">
-          All Stock
-        </SelectItem>
-
-        <SelectItem value="low">
-          Low Stock
-        </SelectItem>
-      </SelectContent>
-    </Select>
-
-    {/* Warehouse Filter */}
-    <Select
-      value={selectedWarehouse}
-      onValueChange={setSelectedWarehouse}
-    >
-      <SelectTrigger className="w-full md:w-48">
-        <SelectValue placeholder="All Warehouses" />
-      </SelectTrigger>
-
-      <SelectContent>
-        <SelectItem value="all">
-          All Warehouses
-        </SelectItem>
-
-        {warehouses.map((warehouse) => (
-          <SelectItem
-            key={warehouse._id}
-            value={warehouse._id}
-          >
-            {warehouse.name}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
-  </div>
-</div>
+                    {warehouses.map((warehouse) => (
+                      <SelectItem key={warehouse._id} value={warehouse._id}>
+                        {warehouse.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
 
             <Card>
               <CardHeader>
-  <div className="flex items-center justify-between">
-    <div>
-      <CardTitle>Inventory Levels</CardTitle>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle>Inventory Levels</CardTitle>
 
-      <CardDescription>
-        Current stock across all warehouses
-      </CardDescription>
-    </div>
+                    <CardDescription>
+                      Current stock across all warehouses
+                    </CardDescription>
+                  </div>
 
-    <div className="rounded-lg bg-muted p-2.5">
-      <Boxes className="h-5 w-5 text-muted-foreground" />
-    </div>
-  </div>
-</CardHeader>
+                  <div className="rounded-lg bg-muted p-2.5">
+                    <Boxes className="h-5 w-5 text-muted-foreground" />
+                  </div>
+                </div>
+              </CardHeader>
               <CardContent>
                 <Table>
                   <TableHeader>
-  <TableRow className="bg-muted/40">
-    <TableHead className="font-semibold">
-      Product
-    </TableHead>
+                    <TableRow className="bg-muted/40">
+                      <TableHead className="font-semibold">Product</TableHead>
 
-    <TableHead className="font-semibold">
-      Warehouse
-    </TableHead>
+                      <TableHead className="font-semibold">Warehouse</TableHead>
 
-    <TableHead className="font-semibold">
-      Variant
-    </TableHead>
+                      <TableHead className="font-semibold">Variant</TableHead>
 
-    <TableHead className="font-semibold">
-      Design
-    </TableHead>
+                      <TableHead className="font-semibold">Design</TableHead>
 
-    <TableHead className="font-semibold">
-      Size
-    </TableHead>
+                      <TableHead className="font-semibold">Size</TableHead>
 
-    <TableHead className="text-right font-semibold">
-      Quantity
-    </TableHead>
+                      <TableHead className="text-right font-semibold">
+                        Quantity
+                      </TableHead>
 
-    <TableHead className="text-right font-semibold">
-      Reorder
-    </TableHead>
+                      <TableHead className="text-right font-semibold">
+                        Reorder
+                      </TableHead>
 
-    <TableHead className="font-semibold">
-      Status
-    </TableHead>
+                      <TableHead className="font-semibold">Status</TableHead>
 
-    {(currentUser?.role === "admin" ||
-      currentUser?.role === "inventory_manager") && (
-      <TableHead className="text-right font-semibold">
-        Actions
-      </TableHead>
-    )}
-  </TableRow>
-</TableHeader>
+                      {(currentUser?.role === "admin" ||
+                        currentUser?.role === "inventory_manager") && (
+                        <TableHead className="text-right font-semibold">
+                          Actions
+                        </TableHead>
+                      )}
+                    </TableRow>
+                  </TableHeader>
                   <TableBody>
-  {filteredInventory.length > 0 ? (
-    filteredInventory.map((inventory) => {
-                      const variants = inventory.variants || [];
+                    {filteredInventory.length > 0 ? (
+                      filteredInventory.map((inventory) => {
+                        const variants = inventory.variants || [];
 
-                      if (variants.length === 0) return null;
+                        if (variants.length === 0) return null;
 
-                      const inventoryKey = inventory._id;
+                        const inventoryKey = inventory._id;
 
-                      const currentSelection =
-                        inventorySelections[inventoryKey];
+                        const currentSelection =
+                          inventorySelections[inventoryKey];
 
-                      // Default to the first available color.
-                      const selectedColor =
-                        currentSelection?.color || variants[0].color;
+                        // Default to the first available color.
+                        const selectedColor =
+                          currentSelection?.color || variants[0].color;
 
-                      const selectedVariant =
-                        variants.find(
-                          (variant) =>
-                            variant.color.toLowerCase() ===
-                            selectedColor.toLowerCase(),
-                        ) || variants[0];
+                        const selectedVariant =
+                          variants.find(
+                            (variant) =>
+                              variant.color.toLowerCase() ===
+                              selectedColor.toLowerCase(),
+                          ) || variants[0];
 
-                      const hasDesigns =
-                        selectedVariant.designs &&
-                        selectedVariant.designs.length > 0;
+                        const hasDesigns =
+                          selectedVariant.designs &&
+                          selectedVariant.designs.length > 0;
 
-                      // -----------------------------------------
-                      // Determine available designs
-                      // -----------------------------------------
+                        // -----------------------------------------
+                        // Determine available designs
+                        // -----------------------------------------
 
-                      const designs = hasDesigns ? selectedVariant.designs : [];
+                        const designs = hasDesigns
+                          ? selectedVariant.designs
+                          : [];
 
-                      const selectedDesign = hasDesigns
-                        ? currentSelection?.design || designs[0]?.design
-                        : null;
+                        const selectedDesign = hasDesigns
+                          ? currentSelection?.design || designs[0]?.design
+                          : null;
 
-                      const selectedDesignNode = hasDesigns
-                        ? designs.find(
-                            (design) =>
-                              design.design.toLowerCase() ===
-                              selectedDesign.toLowerCase(),
-                          )
-                        : null;
+                        const selectedDesignNode = hasDesigns
+                          ? designs.find(
+                              (design) =>
+                                design.design.toLowerCase() ===
+                                selectedDesign.toLowerCase(),
+                            )
+                          : null;
 
-                      // -----------------------------------------
-                      // Determine available sizes
-                      // -----------------------------------------
+                        // -----------------------------------------
+                        // Determine available sizes
+                        // -----------------------------------------
 
-                      const sizes = hasDesigns
-                        ? selectedDesignNode?.sizes || []
-                        : selectedVariant.sizes || [];
+                        const sizes = hasDesigns
+                          ? selectedDesignNode?.sizes || []
+                          : selectedVariant.sizes || [];
 
-                      const selectedSize =
-                        currentSelection?.size || sizes[0]?.size;
+                        const selectedSize =
+                          currentSelection?.size || sizes[0]?.size;
 
-                      const selectedSizeNode =
-                        sizes.find(
-                          (size) =>
-                            size.size.toLowerCase() ===
-                            selectedSize?.toLowerCase(),
-                        ) || sizes[0];
+                        const selectedSizeNode =
+                          sizes.find(
+                            (size) =>
+                              size.size.toLowerCase() ===
+                              selectedSize?.toLowerCase(),
+                          ) || sizes[0];
 
-                      if (!selectedSizeNode) return null;
+                        if (!selectedSizeNode) return null;
 
-                      const isOutOfStock = selectedSizeNode.quantity === 0;
+                        const isOutOfStock = selectedSizeNode.quantity === 0;
 
-                      const isLowStock =
-                        selectedSizeNode.quantity <=
-                        selectedSizeNode.reorderLevel;
+                        const isLowStock =
+                          selectedSizeNode.quantity <=
+                          selectedSizeNode.reorderLevel;
 
-                      // -----------------------------------------
-                      // Update selection while keeping
-                      // dependent values valid.
-                      // -----------------------------------------
+                        // -----------------------------------------
+                        // Update selection while keeping
+                        // dependent values valid.
+                        // -----------------------------------------
 
-                      const updateSelection = (changes) => {
-                        setInventorySelections((prev) => ({
-                          ...prev,
-                          [inventoryKey]: {
-                            color: selectedColor,
-                            design: selectedDesign,
-                            size: selectedSize,
-                            ...changes,
-                          },
-                        }));
-                      };
+                        const updateSelection = (changes) => {
+                          setInventorySelections((prev) => ({
+                            ...prev,
+                            [inventoryKey]: {
+                              color: selectedColor,
+                              design: selectedDesign,
+                              size: selectedSize,
+                              ...changes,
+                            },
+                          }));
+                        };
 
-                      return (
-  <TableRow
-    key={inventoryKey}
-    className="group hover:bg-muted/30"
-  >
-    {/* Product */}
-    <TableCell>
-      <div className="min-w-0">
-        <p className="font-medium">
-          {inventory.product?.name ||
-            `Product #${inventory.productId}`}
-        </p>
+                        return (
+                          <TableRow
+                            key={inventoryKey}
+                            className="group hover:bg-muted/30"
+                          >
+                            {/* Product */}
+                            <TableCell>
+                              <div className="min-w-0">
+                                <p className="font-medium">
+                                  {inventory.product?.name ||
+                                    `Product #${inventory.productId}`}
+                                </p>
 
-        <p className="mt-1 font-mono text-xs text-muted-foreground">
-          ID: {inventory.productId}
-        </p>
-      </div>
-    </TableCell>
+                                <p className="mt-1 font-mono text-xs text-muted-foreground">
+                                  ID: {inventory.productId}
+                                </p>
+                              </div>
+                            </TableCell>
 
-    {/* Warehouse */}
-    <TableCell>
-      <div className="flex items-center gap-2">
-        <Warehouse className="h-4 w-4 text-muted-foreground" />
+                            {/* Warehouse */}
+                            <TableCell>
+                              <div className="flex items-center gap-2">
+                                <Warehouse className="h-4 w-4 text-muted-foreground" />
 
-        <span className="text-sm">
-          {inventory.warehouseId?.name || "-"}
-        </span>
-      </div>
-    </TableCell>
+                                <span className="text-sm">
+                                  {inventory.warehouseId?.name || "-"}
+                                </span>
+                              </div>
+                            </TableCell>
 
-    {/* Variant / Color */}
-    <TableCell>
-      <Select
-        value={selectedVariant.color}
-        onValueChange={(value) => {
-          const nextVariant = variants.find(
-            (variant) =>
-              variant.color.toLowerCase() ===
-              value.toLowerCase(),
-          );
+                            {/* Variant / Color */}
+                            <TableCell>
+                              <Select
+                                value={selectedVariant.color}
+                                onValueChange={(value) => {
+                                  const nextVariant = variants.find(
+                                    (variant) =>
+                                      variant.color.toLowerCase() ===
+                                      value.toLowerCase(),
+                                  );
 
-          const nextHasDesigns =
-            nextVariant?.designs &&
-            nextVariant.designs.length > 0;
+                                  const nextHasDesigns =
+                                    nextVariant?.designs &&
+                                    nextVariant.designs.length > 0;
 
-          const nextDesign = nextHasDesigns
-            ? nextVariant.designs[0]
-            : null;
+                                  const nextDesign = nextHasDesigns
+                                    ? nextVariant.designs[0]
+                                    : null;
 
-          const nextSizes = nextHasDesigns
-            ? nextDesign?.sizes || []
-            : nextVariant?.sizes || [];
+                                  const nextSizes = nextHasDesigns
+                                    ? nextDesign?.sizes || []
+                                    : nextVariant?.sizes || [];
 
-          updateSelection({
-            color: value,
-            design: nextDesign?.design || null,
-            size: nextSizes[0]?.size || null,
-          });
-        }}
-      >
-        <SelectTrigger className="w-32">
-          <SelectValue />
-        </SelectTrigger>
+                                  updateSelection({
+                                    color: value,
+                                    design: nextDesign?.design || null,
+                                    size: nextSizes[0]?.size || null,
+                                  });
+                                }}
+                              >
+                                <SelectTrigger className="w-32">
+                                  <SelectValue />
+                                </SelectTrigger>
 
-        <SelectContent>
-          {variants.map((variant) => (
-            <SelectItem
-              key={variant.color}
-              value={variant.color}
-            >
-              {variant.color}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    </TableCell>
+                                <SelectContent>
+                                  {variants.map((variant) => (
+                                    <SelectItem
+                                      key={variant.color}
+                                      value={variant.color}
+                                    >
+                                      {variant.color}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </TableCell>
 
-    {/* Design */}
-    <TableCell>
-      {hasDesigns ? (
-        <Select
-          value={selectedDesign}
-          onValueChange={(value) => {
-            const nextDesign = designs.find(
-              (design) =>
-                design.design.toLowerCase() ===
-                value.toLowerCase(),
-            );
+                            {/* Design */}
+                            <TableCell>
+                              {hasDesigns ? (
+                                <Select
+                                  value={selectedDesign}
+                                  onValueChange={(value) => {
+                                    const nextDesign = designs.find(
+                                      (design) =>
+                                        design.design.toLowerCase() ===
+                                        value.toLowerCase(),
+                                    );
 
-            updateSelection({
-              design: value,
-              size: nextDesign?.sizes?.[0]?.size || null,
-            });
-          }}
-        >
-          <SelectTrigger className="w-32">
-            <SelectValue />
-          </SelectTrigger>
+                                    updateSelection({
+                                      design: value,
+                                      size:
+                                        nextDesign?.sizes?.[0]?.size || null,
+                                    });
+                                  }}
+                                >
+                                  <SelectTrigger className="w-32">
+                                    <SelectValue />
+                                  </SelectTrigger>
 
-          <SelectContent>
-            {designs.map((design) => (
-              <SelectItem
-                key={design.design}
-                value={design.design}
-              >
-                {design.design}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      ) : (
-        <span className="text-sm text-muted-foreground">
-          No design
-        </span>
-      )}
-    </TableCell>
+                                  <SelectContent>
+                                    {designs.map((design) => (
+                                      <SelectItem
+                                        key={design.design}
+                                        value={design.design}
+                                      >
+                                        {design.design}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              ) : (
+                                <span className="text-sm text-muted-foreground">
+                                  No design
+                                </span>
+                              )}
+                            </TableCell>
 
-    {/* Size */}
-    <TableCell>
-      <Select
-        value={selectedSize}
-        onValueChange={(value) =>
-          updateSelection({
-            size: value,
-          })
-        }
-      >
-        <SelectTrigger className="w-24">
-          <SelectValue />
-        </SelectTrigger>
+                            {/* Size */}
+                            <TableCell>
+                              <Select
+                                value={selectedSize}
+                                onValueChange={(value) =>
+                                  updateSelection({
+                                    size: value,
+                                  })
+                                }
+                              >
+                                <SelectTrigger className="w-24">
+                                  <SelectValue />
+                                </SelectTrigger>
 
-        <SelectContent>
-          {sizes.map((size) => (
-            <SelectItem
-              key={size.size}
-              value={size.size}
-            >
-              {size.size}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    </TableCell>
+                                <SelectContent>
+                                  {sizes.map((size) => (
+                                    <SelectItem
+                                      key={size.size}
+                                      value={size.size}
+                                    >
+                                      {size.size}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </TableCell>
 
-    {/* Quantity */}
-    <TableCell className="text-right">
-      <span
-        className={`text-base font-semibold ${
-          isOutOfStock
-            ? "text-red-600 dark:text-red-400"
-            : isLowStock
-              ? "text-orange-600 dark:text-orange-400"
-              : "text-green-600 dark:text-green-400"
-        }`}
-      >
-        {selectedSizeNode.quantity}
-      </span>
-    </TableCell>
+                            {/* Quantity */}
+                            <TableCell className="text-right">
+                              <span
+                                className={`text-base font-semibold ${
+                                  isOutOfStock
+                                    ? "text-red-600 dark:text-red-400"
+                                    : isLowStock
+                                      ? "text-orange-600 dark:text-orange-400"
+                                      : "text-green-600 dark:text-green-400"
+                                }`}
+                              >
+                                {selectedSizeNode.quantity}
+                              </span>
+                            </TableCell>
 
-    {/* Reorder */}
-    <TableCell>
-      <div className="text-right">
-        <p className="text-sm font-medium">
-          {selectedSizeNode.reorderLevel}
-        </p>
+                            {/* Reorder */}
+                            <TableCell>
+                              <div className="text-right">
+                                <p className="text-sm font-medium">
+                                  {selectedSizeNode.reorderLevel}
+                                </p>
 
-        <p className="text-xs text-muted-foreground">
-          +{selectedSizeNode.reorderQuantity} reorder
-        </p>
-      </div>
-    </TableCell>
+                                <p className="text-xs text-muted-foreground">
+                                  +{selectedSizeNode.reorderQuantity} reorder
+                                </p>
+                              </div>
+                            </TableCell>
 
-    {/* Status */}
-    <TableCell>
-      <Badge
-        className={
-          isOutOfStock
-            ? "border border-red-200 bg-red-100 text-red-700 hover:bg-red-100 dark:border-red-900 dark:bg-red-950/40 dark:text-red-400"
-            : isLowStock
-              ? "border border-orange-200 bg-orange-100 text-orange-700 hover:bg-orange-100 dark:border-orange-900 dark:bg-orange-950/40 dark:text-orange-400"
-              : "border border-green-200 bg-green-100 text-green-700 hover:bg-green-100 dark:border-green-900 dark:bg-green-950/40 dark:text-green-400"
-        }
-      >
-        <span
-          className={`mr-1.5 h-1.5 w-1.5 rounded-full ${
-            isOutOfStock
-              ? "bg-red-500"
-              : isLowStock
-                ? "bg-orange-500"
-                : "bg-green-500"
-          }`}
-        />
+                            {/* Status */}
+                            <TableCell>
+                              <Badge
+                                className={
+                                  isOutOfStock
+                                    ? "border border-red-200 bg-red-100 text-red-700 hover:bg-red-100 dark:border-red-900 dark:bg-red-950/40 dark:text-red-400"
+                                    : isLowStock
+                                      ? "border border-orange-200 bg-orange-100 text-orange-700 hover:bg-orange-100 dark:border-orange-900 dark:bg-orange-950/40 dark:text-orange-400"
+                                      : "border border-green-200 bg-green-100 text-green-700 hover:bg-green-100 dark:border-green-900 dark:bg-green-950/40 dark:text-green-400"
+                                }
+                              >
+                                <span
+                                  className={`mr-1.5 h-1.5 w-1.5 rounded-full ${
+                                    isOutOfStock
+                                      ? "bg-red-500"
+                                      : isLowStock
+                                        ? "bg-orange-500"
+                                        : "bg-green-500"
+                                  }`}
+                                />
 
-        {isOutOfStock
-          ? "Out of Stock"
-          : isLowStock
-            ? "Low Stock"
-            : "In Stock"}
-      </Badge>
-    </TableCell>
+                                {isOutOfStock
+                                  ? "Out of Stock"
+                                  : isLowStock
+                                    ? "Low Stock"
+                                    : "In Stock"}
+                              </Badge>
+                            </TableCell>
 
-    {/* Actions */}
-    {(currentUser?.role === "admin" ||
-      currentUser?.role === "inventory_manager") && (
-      <TableCell className="text-right">
-        <Button
-          size="sm"
-          variant="ghost"
-          className="h-8"
-          onClick={() =>
-            editInventory(
-              inventory,
-              selectedVariant.color,
-              selectedDesign,
-              selectedSizeNode,
-              selectedSizeNode.size,
-            )
-          }
-        >
-          <Pencil className="mr-2 h-4 w-4" />
-          Edit
-        </Button>
-      </TableCell>
-    )}
-  </TableRow>
-);
-                    })) : (
-    <TableRow>
-      <TableCell
-        colSpan={
-          currentUser?.role === "admin" ||
-          currentUser?.role === "inventory_manager"
-            ? 9
-            : 8
-        }
-        className="h-48"
-      >
-        <div className="flex flex-col items-center justify-center text-center">
-          <div className="rounded-full bg-muted p-3">
-            <PackageSearch className="h-6 w-6 text-muted-foreground" />
-          </div>
+                            {/* Actions */}
+                            {(currentUser?.role === "admin" ||
+                              currentUser?.role === "inventory_manager") && (
+                              <TableCell className="text-right">
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-8"
+                                  onClick={() =>
+                                    editInventory(
+                                      inventory,
+                                      selectedVariant.color,
+                                      selectedDesign,
+                                      selectedSizeNode,
+                                      selectedSizeNode.size,
+                                    )
+                                  }
+                                >
+                                  <Pencil className="mr-2 h-4 w-4" />
+                                  Edit
+                                </Button>
+                              </TableCell>
+                            )}
+                          </TableRow>
+                        );
+                      })
+                    ) : (
+                      <TableRow>
+                        <TableCell
+                          colSpan={
+                            currentUser?.role === "admin" ||
+                            currentUser?.role === "inventory_manager"
+                              ? 9
+                              : 8
+                          }
+                          className="h-48"
+                        >
+                          <div className="flex flex-col items-center justify-center text-center">
+                            <div className="rounded-full bg-muted p-3">
+                              <PackageSearch className="h-6 w-6 text-muted-foreground" />
+                            </div>
 
-          <p className="mt-3 font-medium">
-            No inventory found
-          </p>
+                            <p className="mt-3 font-medium">
+                              No inventory found
+                            </p>
 
-          <p className="mt-1 text-sm text-muted-foreground">
-            {inventorySearch
-              ? `No inventory matches "${inventorySearch}".`
-              : inventoryFilter === "low"
-                ? "There are currently no low-stock items."
-                : "No inventory has been added yet."}
-          </p>
+                            <p className="mt-1 text-sm text-muted-foreground">
+                              {inventorySearch
+                                ? `No inventory matches "${inventorySearch}".`
+                                : inventoryFilter === "low"
+                                  ? "There are currently no low-stock items."
+                                  : "No inventory has been added yet."}
+                            </p>
 
-          {inventorySearch && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="mt-2"
-              onClick={() => setInventorySearch("")}
-            >
-              Clear search
-            </Button>
-          )}
-        </div>
-      </TableCell>
-    </TableRow>
-  )
-  }
-</TableBody>
+                            {inventorySearch && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="mt-2"
+                                onClick={() => setInventorySearch("")}
+                              >
+                                Clear search
+                              </Button>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
                 </Table>
               </CardContent>
             </Card>
@@ -3521,597 +3527,1104 @@ export default function VastraDrobeIMS() {
               onOpenChange={setShowEditInventoryDialog}
             >
               <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
-  <DialogHeader>
-    <DialogTitle className="text-xl">
-      Edit Inventory
-    </DialogTitle>
+                <DialogHeader>
+                  <DialogTitle className="text-xl">Edit Inventory</DialogTitle>
 
-    <DialogDescription>
-      Update stock quantities and reorder settings.
-    </DialogDescription>
-  </DialogHeader>
+                  <DialogDescription>
+                    Update stock quantities and reorder settings.
+                  </DialogDescription>
+                </DialogHeader>
 
-  <form onSubmit={updateInventory} className="space-y-6">
-    {/* Stock Settings */}
-    <div className="space-y-4">
-      <div>
-        <p className="text-sm font-semibold">
-          Stock Settings
-        </p>
+                <form onSubmit={updateInventory} className="space-y-6">
+                  {/* Stock Settings */}
+                  <div className="space-y-4">
+                    <div>
+                      <p className="text-sm font-semibold">Stock Settings</p>
 
-        <p className="text-xs text-muted-foreground">
-          Update the current quantity and reorder thresholds.
-        </p>
-      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Update the current quantity and reorder thresholds.
+                      </p>
+                    </div>
 
-      {/* Quantity */}
-      <div className="space-y-2">
-        <Label>Current Quantity</Label>
+                    {/* Quantity */}
+                    <div className="space-y-2">
+                      <Label>Current Quantity</Label>
 
-        <Input
-          type="number"
-          value={editInventoryForm.quantity}
-          onChange={(e) =>
-            setEditInventoryForm({
-              ...editInventoryForm,
-              quantity: parseInt(e.target.value),
-            })
-          }
-          required
-          min="0"
-        />
+                      <Input
+                        type="number"
+                        value={editInventoryForm.quantity}
+                        onChange={(e) =>
+                          setEditInventoryForm({
+                            ...editInventoryForm,
+                            quantity: parseInt(e.target.value),
+                          })
+                        }
+                        required
+                        min="0"
+                      />
 
-        <p className="text-xs text-muted-foreground">
-          Current available units.
-        </p>
-      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Current available units.
+                      </p>
+                    </div>
 
-      {/* Reorder Settings */}
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div className="space-y-2">
-          <Label>Reorder Level</Label>
+                    {/* Reorder Settings */}
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <div className="space-y-2">
+                        <Label>Reorder Level</Label>
 
-          <Input
-            type="number"
-            value={editInventoryForm.reorderLevel}
-            onChange={(e) =>
-              setEditInventoryForm({
-                ...editInventoryForm,
-                reorderLevel: parseInt(e.target.value),
-              })
-            }
-            required
-            min="0"
-          />
+                        <Input
+                          type="number"
+                          value={editInventoryForm.reorderLevel}
+                          onChange={(e) =>
+                            setEditInventoryForm({
+                              ...editInventoryForm,
+                              reorderLevel: parseInt(e.target.value),
+                            })
+                          }
+                          required
+                          min="0"
+                        />
 
-          <p className="text-xs text-muted-foreground">
-            Low-stock threshold.
-          </p>
-        </div>
+                        <p className="text-xs text-muted-foreground">
+                          Low-stock threshold.
+                        </p>
+                      </div>
 
-        <div className="space-y-2">
-          <Label>Reorder Quantity</Label>
+                      <div className="space-y-2">
+                        <Label>Reorder Quantity</Label>
 
-          <Input
-            type="number"
-            value={editInventoryForm.reorderQuantity}
-            onChange={(e) =>
-              setEditInventoryForm({
-                ...editInventoryForm,
-                reorderQuantity: parseInt(e.target.value),
-              })
-            }
-            required
-            min="0"
-          />
+                        <Input
+                          type="number"
+                          value={editInventoryForm.reorderQuantity}
+                          onChange={(e) =>
+                            setEditInventoryForm({
+                              ...editInventoryForm,
+                              reorderQuantity: parseInt(e.target.value),
+                            })
+                          }
+                          required
+                          min="0"
+                        />
 
-          <p className="text-xs text-muted-foreground">
-            Suggested replenishment amount.
-          </p>
-        </div>
-      </div>
-    </div>
+                        <p className="text-xs text-muted-foreground">
+                          Suggested replenishment amount.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
 
-    {/* Live Stock Status */}
-    <div className="rounded-xl border p-4">
-      <div className="flex items-center justify-between gap-4">
-        <div>
-          <p className="text-sm font-medium">
-            Stock Status
-          </p>
+                  {/* Live Stock Status */}
+                  <div className="rounded-xl border p-4">
+                    <div className="flex items-center justify-between gap-4">
+                      <div>
+                        <p className="text-sm font-medium">Stock Status</p>
 
-          <p className="text-xs text-muted-foreground">
-            Based on the values above.
-          </p>
-        </div>
+                        <p className="text-xs text-muted-foreground">
+                          Based on the values above.
+                        </p>
+                      </div>
 
-        {Number(editInventoryForm.quantity) === 0 ? (
-          <Badge className="border-red-200 bg-red-100 text-red-700 hover:bg-red-100 dark:border-red-900 dark:bg-red-950/40 dark:text-red-400">
-            Out of Stock
-          </Badge>
-        ) : Number(editInventoryForm.quantity) <=
-          Number(editInventoryForm.reorderLevel) ? (
-          <Badge className="border-orange-200 bg-orange-100 text-orange-700 hover:bg-orange-100 dark:border-orange-900 dark:bg-orange-950/40 dark:text-orange-400">
-            Low Stock
-          </Badge>
-        ) : (
-          <Badge className="border-green-200 bg-green-100 text-green-700 hover:bg-green-100 dark:border-green-900 dark:bg-green-950/40 dark:text-green-400">
-            In Stock
-          </Badge>
-        )}
-      </div>
-    </div>
+                      {Number(editInventoryForm.quantity) === 0 ? (
+                        <Badge className="border-red-200 bg-red-100 text-red-700 hover:bg-red-100 dark:border-red-900 dark:bg-red-950/40 dark:text-red-400">
+                          Out of Stock
+                        </Badge>
+                      ) : Number(editInventoryForm.quantity) <=
+                        Number(editInventoryForm.reorderLevel) ? (
+                        <Badge className="border-orange-200 bg-orange-100 text-orange-700 hover:bg-orange-100 dark:border-orange-900 dark:bg-orange-950/40 dark:text-orange-400">
+                          Low Stock
+                        </Badge>
+                      ) : (
+                        <Badge className="border-green-200 bg-green-100 text-green-700 hover:bg-green-100 dark:border-green-900 dark:bg-green-950/40 dark:text-green-400">
+                          In Stock
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
 
-    {/* Actions */}
-    <div className="flex justify-end gap-2 border-t pt-4">
-      <Button
-        type="button"
-        variant="outline"
-        onClick={() =>
-          setShowEditInventoryDialog(false)
-        }
-      >
-        Cancel
-      </Button>
+                  {/* Actions */}
+                  <div className="flex justify-end gap-2 border-t pt-4">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setShowEditInventoryDialog(false)}
+                    >
+                      Cancel
+                    </Button>
 
-      <Button type="submit">
-        Update Inventory
-      </Button>
-    </div>
-  </form>
-</DialogContent>
+                    <Button type="submit">Update Inventory</Button>
+                  </div>
+                </form>
+              </DialogContent>
             </Dialog>
 
             {inventoryTotal > 0 && (
-  <div className="flex flex-col gap-3 border-t pt-4 sm:flex-row sm:items-center sm:justify-between">
-    <p className="text-sm text-muted-foreground">
-      Showing{" "}
-      <span className="font-medium text-foreground">
-        {(inventoryPage - 1) * inventoryLimit + 1}
-      </span>{" "}
-      to{" "}
-      <span className="font-medium text-foreground">
-        {Math.min(
-          inventoryPage * inventoryLimit,
-          inventoryTotal,
-        )}
-      </span>{" "}
-      of{" "}
-      <span className="font-medium text-foreground">
-        {inventoryTotal}
-      </span>{" "}
-      inventory records
-    </p>
+              <div className="flex flex-col gap-3 border-t pt-4 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-sm text-muted-foreground">
+                  Showing{" "}
+                  <span className="font-medium text-foreground">
+                    {(inventoryPage - 1) * inventoryLimit + 1}
+                  </span>{" "}
+                  to{" "}
+                  <span className="font-medium text-foreground">
+                    {Math.min(inventoryPage * inventoryLimit, inventoryTotal)}
+                  </span>{" "}
+                  of{" "}
+                  <span className="font-medium text-foreground">
+                    {inventoryTotal}
+                  </span>{" "}
+                  inventory records
+                </p>
 
-    <div className="flex items-center gap-2">
-      <Button
-        variant="outline"
-        size="sm"
-        disabled={inventoryPage <= 1}
-        onClick={() =>
-          setInventoryPage((prev) => prev - 1)
-        }
-      >
-        Previous
-      </Button>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={inventoryPage <= 1}
+                    onClick={() => setInventoryPage((prev) => prev - 1)}
+                  >
+                    Previous
+                  </Button>
 
-      <div className="flex h-9 min-w-9 items-center justify-center rounded-md border bg-muted px-3 text-sm font-medium">
-        {inventoryPage}
-      </div>
+                  <div className="flex h-9 min-w-9 items-center justify-center rounded-md border bg-muted px-3 text-sm font-medium">
+                    {inventoryPage}
+                  </div>
 
-      <Button
-        variant="outline"
-        size="sm"
-        disabled={
-          inventoryPage >=
-          Math.ceil(inventoryTotal / inventoryLimit)
-        }
-        onClick={() =>
-          setInventoryPage((prev) => prev + 1)
-        }
-      >
-        Next
-      </Button>
-    </div>
-  </div>
-)}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={
+                      inventoryPage >=
+                      Math.ceil(inventoryTotal / inventoryLimit)
+                    }
+                    onClick={() => setInventoryPage((prev) => prev + 1)}
+                  >
+                    Next
+                  </Button>
+                </div>
+              </div>
+            )}
           </TabsContent>
 
           {/* Stock Movements Tab */}
           <TabsContent value="movements" className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex gap-5 items-center justify-center">
-                <h2 className="text-xl font-semibold">Stock Movements</h2>
-                <Button variant="outline" onClick={exportExcel}>
-                  Export Excel
-                </Button>
-              </div>
+            {/* Movements Header */}
+            <div className="flex flex-col gap-5">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <h2 className="text-2xl font-bold tracking-tight">
+                    Stock Movements
+                  </h2>
 
-              <Dialog
-                open={showMovementDialog}
-                onOpenChange={setShowMovementDialog}
-              >
-                <DialogTrigger asChild>
-                  <Button>
-                    <Plus className="w-4 h-4 mr-2" />
-                    Record Movement
+                  <p className="text-sm text-muted-foreground">
+                    Track inventory transactions across your warehouses
+                  </p>
+                </div>
+
+                <div className="flex gap-2">
+                  <Button variant="outline" onClick={exportExcel}>
+                    <Download className="mr-2 h-4 w-4" />
+                    Export Excel
                   </Button>
-                </DialogTrigger>
-                <DialogContent className="max-w-2xl h-[98vh] overflow-y-auto">
-                  <DialogHeader>
-                    <DialogTitle>Record Stock Movement</DialogTitle>
-                  </DialogHeader>
-                  <form onSubmit={createStockMovement} className="space-y-4">
-                    <div>
-                      <Label>Movement Type</Label>
-                      <Select
-                        value={movementForm.type}
-                        onValueChange={(val) =>
-                          setMovementForm({ ...movementForm, type: val })
-                        }
+
+                  <Dialog
+                    open={showMovementDialog}
+                    onOpenChange={setShowMovementDialog}
+                  >
+                    <DialogTrigger asChild>
+                      <Button>
+                        <Plus className="mr-2 h-4 w-4" />
+                        Record Movement
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-xl">
+                      <DialogHeader>
+                        <DialogTitle className="text-xl">
+                          Record Stock Movement
+                        </DialogTitle>
+
+                        <DialogDescription>
+                          Record a stock transaction and update inventory.
+                        </DialogDescription>
+                      </DialogHeader>
+
+                      <form
+                        onSubmit={createStockMovement}
+                        className="space-y-6"
                       >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="in">Stock In</SelectItem>
-                          <SelectItem value="out">Stock Out</SelectItem>
-                          <SelectItem value="transfer">Transfer</SelectItem>
-                          <SelectItem value="sale">Sale</SelectItem>
-                          <SelectItem value="return">Return</SelectItem>
-                          <SelectItem value="damaged">Damaged</SelectItem>
-                          <SelectItem value="adjustment">Adjustment</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div>
-                      <Label>Select Product :</Label>
-                      <Select
-                        value={movementForm.productId || ""}
-                        onValueChange={(val) =>
-                          setMovementForm((prev) => ({
-                            ...prev,
-                            productId: val,
-                            color: "",
-                            design: "",
-                            size: "",
-                          }))
-                        }
-                      >
-                        <SelectTrigger className="">
-                          <SelectValue placeholder="Select Product" />
-                        </SelectTrigger>
-
-                        <SelectContent className="max-h-72 overflow-y-auto">
-                          {products.map((p) => (
-                            <SelectItem
-                              key={p.productId}
-                              value={String(p.productId)}
-                              className="max-w-[450px]"
-                            >
-                              <span className="block truncate">{p.name}</span>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div>
-                      <Label>Color</Label>
-
-                      <Select
-                        value={movementForm.color}
-                        onValueChange={(val) =>
-                          setMovementForm((prev) => ({
-                            ...prev,
-                            color: val,
-                            design: "",
-                            size: "",
-                          }))
-                        }
-                      >
-                        <SelectTrigger className="w-full">
-                          <SelectValue placeholder="Select Color" />
-                        </SelectTrigger>
-
-                        <SelectContent className="max-h-60 overflow-y-auto">
-                          {products
-                            .find(
-                              (p) =>
-                                String(p.productId) === movementForm.productId,
-                            )
-                            ?.variants?.map((variant) => (
-                              <SelectItem
-                                key={variant.color}
-                                value={variant.color}
-                              >
-                                <span className="capitalize truncate">
-                                  {variant.color}
-                                </span>
-                              </SelectItem>
-                            ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    {movementHasDesigns && (
-                      <div>
-                        <Label>Design</Label>
-
-                        <Select
-                          value={movementForm.design}
-                          onValueChange={(val) =>
-                            setMovementForm((prev) => ({
-                              ...prev,
-                              design: val,
-                              size: "",
-                            }))
-                          }
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select Design" />
-                          </SelectTrigger>
-
-                          <SelectContent className="max-h-60 overflow-y-auto">
-                            {selectedMovementVariant?.designs?.map((design) => (
-                              <SelectItem
-                                key={design.design}
-                                value={design.design}
-                              >
-                                {design.design}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    )}
-
-                    <div>
-                      <Label>Size</Label>
-
-                      <Select
-                        value={movementForm.size}
-                        onValueChange={(val) =>
-                          setMovementForm((prev) => ({
-                            ...prev,
-                            size: val,
-                          }))
-                        }
-                        disabled={
-                          !movementForm.color ||
-                          (movementHasDesigns && !movementForm.design)
-                        }
-                      >
-                        <SelectTrigger>
-                          <SelectValue
-                            placeholder={
-                              movementHasDesigns
-                                ? "Select Design First"
-                                : "Select Size"
-                            }
-                          />
-                        </SelectTrigger>
-
-                        <SelectContent className="max-h-60 overflow-y-auto">
-                          {availableMovementSizes.map((size, index) => (
-                            <SelectItem key={index} value={String(size)}>
-                              <span>{String(size)}</span>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                      {movementForm.type !== "in" &&
-                        movementForm.type !== "return" && (
+                        {/* Movement Type */}
+                        <div className="space-y-3">
                           <div>
-                            <Label>From Warehouse</Label>
+                            <p className="text-sm font-semibold">
+                              Movement Type
+                            </p>
+
+                            <p className="text-xs text-muted-foreground">
+                              Select what is happening to the stock.
+                            </p>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                            {[
+                              {
+                                value: "in",
+                                label: "Stock In",
+                                icon: ArrowDownToLine,
+                              },
+                              {
+                                value: "out",
+                                label: "Stock Out",
+                                icon: ArrowUpFromLine,
+                              },
+                              {
+                                value: "transfer",
+                                label: "Transfer",
+                                icon: ArrowLeftRight,
+                              },
+                              {
+                                value: "adjustment",
+                                label: "Adjustment",
+                                icon: RefreshCcw,
+                              },
+                            ].map((item) => {
+                              const Icon = item.icon;
+
+                              return (
+                                <Button
+                                  key={item.value}
+                                  type="button"
+                                  variant={
+                                    movementForm.type === item.value
+                                      ? "default"
+                                      : "outline"
+                                  }
+                                  className="h-auto flex-col gap-2 py-3"
+                                  onClick={() =>
+                                    setMovementForm({
+                                      ...movementForm,
+                                      type: item.value,
+                                      fromWarehouseId: "",
+                                      toWarehouseId: "",
+                                    })
+                                  }
+                                >
+                                  <Icon className="h-5 w-5" />
+
+                                  <span className="text-xs">{item.label}</span>
+                                </Button>
+                              );
+                            })}
+                          </div>
+
+                          {/* Other movement types */}
+                          <div className="grid grid-cols-3 gap-2">
+                            {[
+                              {
+                                value: "sale",
+                                label: "Sale",
+                                icon: ShoppingCart,
+                              },
+                              {
+                                value: "return",
+                                label: "Return",
+                                icon: RotateCcw,
+                              },
+                              {
+                                value: "damaged",
+                                label: "Damaged",
+                                icon: AlertTriangle,
+                              },
+                            ].map((item) => {
+                              const Icon = item.icon;
+
+                              return (
+                                <Button
+                                  key={item.value}
+                                  type="button"
+                                  variant={
+                                    movementForm.type === item.value
+                                      ? "default"
+                                      : "outline"
+                                  }
+                                  className="h-auto flex-col gap-2 py-3"
+                                  onClick={() =>
+                                    setMovementForm({
+                                      ...movementForm,
+                                      type: item.value,
+                                      fromWarehouseId: "",
+                                      toWarehouseId: "",
+                                    })
+                                  }
+                                >
+                                  <Icon className="h-5 w-5" />
+
+                                  <span className="text-xs">{item.label}</span>
+                                </Button>
+                              );
+                            })}
+                          </div>
+                        </div>
+
+                        {/* Product */}
+                        <div className="space-y-4">
+                          <div>
+                            <p className="text-sm font-semibold">
+                              Product & Variant
+                            </p>
+
+                            <p className="text-xs text-muted-foreground">
+                              Select the exact product, color, design, and size.
+                            </p>
+                          </div>
+
+                          {/* Product */}
+                          <div className="space-y-2">
+                            <Label>Product</Label>
+
                             <Select
-                              value={movementForm.fromWarehouseId}
+                              value={movementForm.productId || ""}
                               onValueChange={(val) =>
-                                setMovementForm({
-                                  ...movementForm,
-                                  fromWarehouseId: val,
-                                })
+                                setMovementForm((prev) => ({
+                                  ...prev,
+                                  productId: val,
+                                  color: "",
+                                  design: "",
+                                  size: "",
+                                }))
                               }
                             >
                               <SelectTrigger>
-                                <SelectValue placeholder="Select source warehouse" />
+                                <SelectValue placeholder="Select Product" />
                               </SelectTrigger>
-                              <SelectContent>
-                                {warehouses.map((w) => (
+
+                              <SelectContent className="max-h-72">
+                                {products.map((p) => (
                                   <SelectItem
-                                    key={w._id || w.id}
-                                    value={w._id || w.id}
+                                    key={p.productId}
+                                    value={String(p.productId)}
                                   >
-                                    {w.name}
+                                    <span className="block max-w-[420px] truncate">
+                                      {p.name}{" "}
+                                      <span className="text-muted-foreground">
+                                        #{p.productId}
+                                      </span>
+                                    </span>
                                   </SelectItem>
                                 ))}
                               </SelectContent>
                             </Select>
                           </div>
-                        )}
 
-                      {(movementForm.type === "in" ||
-                        movementForm.type === "transfer" ||
-                        movementForm.type === "return") && (
-                        <div>
-                          <Label>To Warehouse</Label>
-                          <Select
-                            value={movementForm.toWarehouseId}
-                            onValueChange={(val) =>
+                          {/* Color / Design */}
+                          <div className="grid gap-4 sm:grid-cols-2">
+                            {/* Color */}
+                            <div className="space-y-2">
+                              <Label>Color</Label>
+
+                              <Select
+                                value={movementForm.color}
+                                onValueChange={(val) =>
+                                  setMovementForm((prev) => ({
+                                    ...prev,
+                                    color: val,
+                                    design: "",
+                                    size: "",
+                                  }))
+                                }
+                                disabled={!movementForm.productId}
+                              >
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select Color" />
+                                </SelectTrigger>
+
+                                <SelectContent className="max-h-60">
+                                  {products
+                                    .find(
+                                      (p) =>
+                                        String(p.productId) ===
+                                        movementForm.productId,
+                                    )
+                                    ?.variants?.map((variant) => (
+                                      <SelectItem
+                                        key={variant.color}
+                                        value={variant.color}
+                                      >
+                                        <span className="capitalize">
+                                          {variant.color}
+                                        </span>
+                                      </SelectItem>
+                                    ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+
+                            {/* Design */}
+                            {movementHasDesigns && (
+                              <div className="space-y-2">
+                                <Label>Design</Label>
+
+                                <Select
+                                  value={movementForm.design}
+                                  onValueChange={(val) =>
+                                    setMovementForm((prev) => ({
+                                      ...prev,
+                                      design: val,
+                                      size: "",
+                                    }))
+                                  }
+                                >
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Select Design" />
+                                  </SelectTrigger>
+
+                                  <SelectContent className="max-h-60">
+                                    {selectedMovementVariant?.designs?.map(
+                                      (design) => (
+                                        <SelectItem
+                                          key={design.design}
+                                          value={design.design}
+                                        >
+                                          {design.design}
+                                        </SelectItem>
+                                      ),
+                                    )}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Size */}
+                          <div className="space-y-2">
+                            <Label>Size</Label>
+
+                            <Select
+                              value={movementForm.size}
+                              onValueChange={(val) =>
+                                setMovementForm((prev) => ({
+                                  ...prev,
+                                  size: val,
+                                }))
+                              }
+                              disabled={
+                                !movementForm.color ||
+                                (movementHasDesigns && !movementForm.design)
+                              }
+                            >
+                              <SelectTrigger>
+                                <SelectValue
+                                  placeholder={
+                                    movementHasDesigns
+                                      ? "Select Design First"
+                                      : "Select Size"
+                                  }
+                                />
+                              </SelectTrigger>
+
+                              <SelectContent className="max-h-60">
+                                {availableMovementSizes.map((size, index) => (
+                                  <SelectItem key={index} value={String(size)}>
+                                    {String(size)}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+
+                        {/* Warehouse */}
+                        <div className="space-y-4">
+                          <div>
+                            <p className="text-sm font-semibold">Warehouse</p>
+
+                            <p className="text-xs text-muted-foreground">
+                              Choose the source and destination.
+                            </p>
+                          </div>
+
+                          <div className="grid gap-4 sm:grid-cols-2">
+                            {/* From */}
+                            {movementForm.type !== "in" &&
+                              movementForm.type !== "return" && (
+                                <div className="space-y-2">
+                                  <Label>From Warehouse</Label>
+
+                                  <Select
+                                    value={movementForm.fromWarehouseId}
+                                    onValueChange={(val) =>
+                                      setMovementForm({
+                                        ...movementForm,
+                                        fromWarehouseId: val,
+                                      })
+                                    }
+                                  >
+                                    <SelectTrigger>
+                                      <SelectValue placeholder="Select source" />
+                                    </SelectTrigger>
+
+                                    <SelectContent>
+                                      {warehouses.map((w) => (
+                                        <SelectItem
+                                          key={w._id || w.id}
+                                          value={w._id || w.id}
+                                        >
+                                          {w.name}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                              )}
+
+                            {/* To */}
+                            {(movementForm.type === "in" ||
+                              movementForm.type === "transfer" ||
+                              movementForm.type === "return") && (
+                              <div className="space-y-2">
+                                <Label>To Warehouse</Label>
+
+                                <Select
+                                  value={movementForm.toWarehouseId}
+                                  onValueChange={(val) =>
+                                    setMovementForm({
+                                      ...movementForm,
+                                      toWarehouseId: val,
+                                    })
+                                  }
+                                >
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Select destination" />
+                                  </SelectTrigger>
+
+                                  <SelectContent>
+                                    {warehouses.map((w) => (
+                                      <SelectItem
+                                        key={w._id || w.id}
+                                        value={w._id || w.id}
+                                      >
+                                        {w.name}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Quantity */}
+                        <div className="space-y-2">
+                          <Label>Quantity</Label>
+
+                          <Input
+                            type="number"
+                            min="1"
+                            value={movementForm.quantity}
+                            onChange={(e) =>
                               setMovementForm({
                                 ...movementForm,
-                                toWarehouseId: val,
+                                quantity: parseInt(e.target.value),
                               })
                             }
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select destination warehouse" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {warehouses.map((w) => (
-                                <SelectItem
-                                  key={w._id || w.id}
-                                  value={w._id || w.name}
-                                >
-                                  {w.name}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                            required
+                            placeholder="Enter quantity"
+                          />
                         </div>
-                      )}
-                    </div>
 
-                    <div>
-                      <Label>Quantity</Label>
-                      <Input
-                        type="number"
-                        value={movementForm.quantity}
-                        onChange={(e) =>
-                          setMovementForm({
-                            ...movementForm,
-                            quantity: parseInt(e.target.value),
-                          })
-                        }
-                        required
-                      />
-                    </div>
+                        {/* Additional Details */}
+                        <div className="space-y-4">
+                          <div>
+                            <p className="text-sm font-semibold">
+                              Additional Details
+                            </p>
 
-                    <div>
-                      <Label>Reference Number</Label>
-                      <Input
-                        value={movementForm.referenceNumber}
-                        onChange={(e) =>
-                          setMovementForm({
-                            ...movementForm,
-                            referenceNumber: e.target.value,
-                          })
-                        }
-                      />
-                    </div>
+                            <p className="text-xs text-muted-foreground">
+                              Add references or notes for auditing.
+                            </p>
+                          </div>
 
-                    <div>
-                      <Label>Reason</Label>
-                      <Input
-                        value={movementForm.reason}
-                        onChange={(e) =>
-                          setMovementForm({
-                            ...movementForm,
-                            reason: e.target.value,
-                          })
-                        }
-                      />
-                    </div>
+                          <div className="grid gap-4 sm:grid-cols-2">
+                            <div className="space-y-2">
+                              <Label>
+                                Reference Number
+                                {(movementForm.type === "sale" ||
+                                  movementForm.type === "return") && (
+                                  <span className="ml-1 text-red-500">*</span>
+                                )}
+                              </Label>
 
-                    <div>
-                      <Label>Notes</Label>
-                      <Input
-                        value={movementForm.notes}
-                        onChange={(e) =>
-                          setMovementForm({
-                            ...movementForm,
-                            notes: e.target.value,
-                          })
-                        }
-                      />
-                    </div>
+                              <Input
+                                value={movementForm.referenceNumber}
+                                onChange={(e) =>
+                                  setMovementForm({
+                                    ...movementForm,
+                                    referenceNumber: e.target.value,
+                                  })
+                                }
+                                placeholder={
+                                  movementForm.type === "sale"
+                                    ? "Enter order number"
+                                    : movementForm.type === "return"
+                                      ? "Enter return number"
+                                      : "Order / invoice / reference"
+                                }
+                                required={
+                                  movementForm.type === "sale" ||
+                                  movementForm.type === "return"
+                                }
+                              />
 
-                    <Button type="submit" className="w-full">
-                      Record Movement
-                    </Button>
-                  </form>
-                </DialogContent>
-              </Dialog>
+                              {(movementForm.type === "sale" ||
+                                movementForm.type === "return") && (
+                                <p className="text-xs text-muted-foreground">
+                                  Required for{" "}
+                                  {movementForm.type === "sale"
+                                    ? "sales"
+                                    : "returns"}
+                                  .
+                                </p>
+                              )}
+                            </div>
+
+                            <div className="space-y-2">
+                              <Label>Reason</Label>
+
+                              <Input
+                                value={movementForm.reason}
+                                onChange={(e) =>
+                                  setMovementForm({
+                                    ...movementForm,
+                                    reason: e.target.value,
+                                  })
+                                }
+                                placeholder="Reason for movement"
+                              />
+                            </div>
+                          </div>
+
+                          <div className="space-y-2">
+                            <Label>Notes</Label>
+
+                            <Textarea
+                              value={movementForm.notes}
+                              onChange={(e) =>
+                                setMovementForm({
+                                  ...movementForm,
+                                  notes: e.target.value,
+                                })
+                              }
+                              placeholder="Additional notes..."
+                              rows={3}
+                            />
+                          </div>
+                        </div>
+
+                        {/* Submit */}
+                        <div className="flex justify-end gap-2 border-t pt-4">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => setShowMovementDialog(false)}
+                          >
+                            Cancel
+                          </Button>
+
+                          <Button type="submit">
+                            <Plus className="mr-2 h-4 w-4" />
+                            Record Movement
+                          </Button>
+                        </div>
+                      </form>
+                    </DialogContent>
+                  </Dialog>
+                </div>
+              </div>
+
+              {/* Movement Filters */}
+              <div className="flex flex-col gap-3 rounded-xl border bg-muted/20 p-4 md:flex-row md:items-center">
+                {/* Search */}
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+
+                  <Input
+                    placeholder="Search movements..."
+                    value={movementSearch}
+                    onChange={(e) => {
+                      setMovementSearch(e.target.value);
+                      setMovementPage(1);
+                    }}
+                    className="pl-9"
+                  />
+                </div>
+
+                {/* Movement Type */}
+                <Select
+                  value={movementTypeFilter}
+                  onValueChange={(value) => {
+                    setMovementTypeFilter(value);
+                    setMovementPage(1);
+                  }}
+                >
+                  <SelectTrigger className="w-full md:w-44">
+                    <SelectValue placeholder="Movement type" />
+                  </SelectTrigger>
+
+                  <SelectContent>
+                    <SelectItem value="all">All Movements</SelectItem>
+
+                    <SelectItem value="in">Stock In</SelectItem>
+
+                    <SelectItem value="out">Stock Out</SelectItem>
+
+                    <SelectItem value="transfer">Transfer</SelectItem>
+
+                    <SelectItem value="sale">Sale</SelectItem>
+
+                    <SelectItem value="return">Return</SelectItem>
+
+                    <SelectItem value="damaged">Damaged</SelectItem>
+
+                    <SelectItem value="adjustment">Adjustment</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                {/* Warehouse */}
+                <Select
+                  value={movementWarehouseFilter}
+                  onValueChange={(value) => {
+                    setMovementWarehouseFilter(value);
+                    setMovementPage(1);
+                  }}
+                >
+                  <SelectTrigger className="w-full md:w-48">
+                    <SelectValue placeholder="Warehouse" />
+                  </SelectTrigger>
+
+                  <SelectContent>
+                    <SelectItem value="all">All Warehouses</SelectItem>
+
+                    {warehouses.map((warehouse) => (
+                      <SelectItem key={warehouse._id} value={warehouse._id}>
+                        {warehouse.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
-            <Card>
+            <Card className="border-border/60 shadow-sm">
               <CardHeader>
-                <CardTitle>Movement History</CardTitle>
-                <CardDescription>Track all stock movements</CardDescription>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle>Movement History</CardTitle>
+
+                    <CardDescription>
+                      Track all stock transactions across your warehouses
+                    </CardDescription>
+                  </div>
+
+                  <div className="rounded-lg bg-muted p-2.5">
+                    <Activity className="h-5 w-5 text-muted-foreground" />
+                  </div>
+                </div>
               </CardHeader>
-              <CardContent>
+
+              <CardContent className="p-0">
                 <Table>
                   <TableHeader>
-                    <TableRow>
-                      <TableHead>Date</TableHead>
-                      <TableHead>Type</TableHead>
-                      <TableHead>Product</TableHead>
-                      <TableHead>From</TableHead>
-                      <TableHead>To</TableHead>
-                      <TableHead>Quantity</TableHead>
-                      <TableHead>Performed By</TableHead>
+                    <TableRow className="bg-muted/40">
+                      <TableHead className="font-semibold">Movement</TableHead>
+
+                      <TableHead className="font-semibold">Product</TableHead>
+
+                      <TableHead className="font-semibold">Variant</TableHead>
+
+                      <TableHead className="font-semibold">Route</TableHead>
+
+                      <TableHead className="text-right font-semibold">
+                        Quantity
+                      </TableHead>
+
+                      <TableHead className="font-semibold">
+                        Performed By
+                      </TableHead>
+
+                      <TableHead className="font-semibold">Date</TableHead>
                     </TableRow>
                   </TableHeader>
+
                   <TableBody>
-                    {stockMovements.map((movement, ind) => (
-                      <TableRow key={`${movement.id}-${ind}`}>
-                        <TableCell>
-                          {new Date(movement.createdAt).toLocaleString()}
-                        </TableCell>
-                        <TableCell>
-                          <Badge
-                            variant={
-                              movement.type === "in"
-                                ? "default"
-                                : movement.type === "out" ||
-                                    movement.type === "damaged"
-                                  ? "destructive"
-                                  : "secondary"
-                            }
+                    {stockMovements.length > 0 ? (
+                      stockMovements.map((movement, ind) => {
+                        const isIn = movement.type === "in";
+                        const isOut =
+                          movement.type === "out" ||
+                          movement.type === "damaged";
+                        const isTransfer = movement.type === "transfer";
+
+                        const variantInfo = [
+                          movement.color,
+                          movement.design,
+                          movement.size,
+                        ]
+                          .filter(Boolean)
+                          .join(" • ");
+
+                        const from = movement.fromWarehouseId?.name || null;
+
+                        const to = movement.toWarehouseId?.name || null;
+
+                        return (
+                          <TableRow
+                            key={`${movement.id}-${ind}`}
+                            className="hover:bg-muted/30"
                           >
-                            {movement.type}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="w-[60%]">
-                          {movement.product?.name || "N/A"}
-                        </TableCell>
-                        <TableCell>
-                          {movement.fromWarehouseId?.name || "-"}
-                        </TableCell>
-                        <TableCell>
-                          {movement.toWarehouseId?.name || "-"}
-                        </TableCell>
-                        <TableCell>{movement.quantity}</TableCell>
-                        <TableCell>
-                          {movement.performedBy?.name || "N/A"}
+                            {/* Movement */}
+                            <TableCell>
+                              <div className="flex items-center gap-3">
+                                <div
+                                  className={`rounded-lg p-2 ${
+                                    isIn
+                                      ? "bg-green-100 dark:bg-green-950/40"
+                                      : isOut
+                                        ? "bg-red-100 dark:bg-red-950/40"
+                                        : isTransfer
+                                          ? "bg-blue-100 dark:bg-blue-950/40"
+                                          : "bg-muted"
+                                  }`}
+                                >
+                                  {isIn ? (
+                                    <ArrowDownToLine className="h-4 w-4 text-green-600 dark:text-green-400" />
+                                  ) : isOut ? (
+                                    <ArrowUpFromLine className="h-4 w-4 text-red-600 dark:text-red-400" />
+                                  ) : isTransfer ? (
+                                    <ArrowLeftRight className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                                  ) : (
+                                    <RefreshCcw className="h-4 w-4 text-muted-foreground" />
+                                  )}
+                                </div>
+
+                                <div>
+                                  <Badge
+                                    variant={
+                                      isIn
+                                        ? "default"
+                                        : isOut
+                                          ? "destructive"
+                                          : "secondary"
+                                    }
+                                    className="capitalize"
+                                  >
+                                    {movement.type}
+                                  </Badge>
+
+                                  {movement.reason && (
+                                    <p className="mt-1 max-w-[140px] truncate text-xs text-muted-foreground">
+                                      {movement.reason}
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+                            </TableCell>
+
+                            {/* Product */}
+                            <TableCell>
+                              <div className="min-w-0">
+                                <p className="font-medium">
+                                  {movement.product?.name || "Unknown Product"}
+                                </p>
+
+                                <p className="font-mono text-xs text-muted-foreground">
+                                  #{movement.productId}
+                                </p>
+                              </div>
+                            </TableCell>
+
+                            {/* Variant */}
+                            <TableCell>
+                              {variantInfo ? (
+                                <span className="text-sm">{variantInfo}</span>
+                              ) : (
+                                <span className="text-sm text-muted-foreground">
+                                  -
+                                </span>
+                              )}
+                            </TableCell>
+
+                            {/* Route */}
+                            <TableCell>
+                              {isTransfer ? (
+                                <div className="flex items-center gap-2 text-sm">
+                                  <span className="max-w-[100px] truncate">
+                                    {from || "-"}
+                                  </span>
+
+                                  <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+
+                                  <span className="max-w-[100px] truncate">
+                                    {to || "-"}
+                                  </span>
+                                </div>
+                              ) : (
+                                <div className="text-sm">
+                                  {isIn ? (
+                                    <span>→ {to || "Warehouse"}</span>
+                                  ) : (
+                                    <span>← {from || "Warehouse"}</span>
+                                  )}
+                                </div>
+                              )}
+                            </TableCell>
+
+                            {/* Quantity */}
+                            <TableCell className="text-right">
+                              <span
+                                className={`text-base font-semibold ${
+                                  isIn
+                                    ? "text-green-600 dark:text-green-400"
+                                    : isOut
+                                      ? "text-red-600 dark:text-red-400"
+                                      : "text-foreground"
+                                }`}
+                              >
+                                {isIn ? "+" : isOut ? "-" : ""}
+                                {movement.quantity}
+                              </span>
+
+                              <p className="text-xs text-muted-foreground">
+                                units
+                              </p>
+                            </TableCell>
+
+                            {/* Performed By */}
+                            <TableCell>
+                              <div className="flex items-center gap-2">
+                                <div className="flex h-7 w-7 items-center justify-center rounded-full bg-muted text-xs font-medium">
+                                  {movement.performedBy?.name
+                                    ?.charAt(0)
+                                    ?.toUpperCase() || "?"}
+                                </div>
+
+                                <span className="text-sm">
+                                  {movement.performedBy?.name || "N/A"}
+                                </span>
+                              </div>
+                            </TableCell>
+
+                            {/* Date */}
+                            <TableCell>
+                              <div>
+                                <p className="text-sm">
+                                  {new Date(
+                                    movement.createdAt,
+                                  ).toLocaleDateString()}
+                                </p>
+
+                                <p className="text-xs text-muted-foreground">
+                                  {new Date(
+                                    movement.createdAt,
+                                  ).toLocaleTimeString([], {
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                  })}
+                                </p>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })
+                    ) : (
+                      <TableRow>
+                        <TableCell colSpan={7} className="h-48">
+                          <div className="flex flex-col items-center justify-center text-center">
+                            <div className="rounded-full bg-muted p-3">
+                              <Activity className="h-6 w-6 text-muted-foreground" />
+                            </div>
+
+                            <p className="mt-3 font-medium">
+                              No movements found
+                            </p>
+
+                            <p className="mt-1 text-sm text-muted-foreground">
+                              {movementSearch
+                                ? `No movements match "${movementSearch}".`
+                                : movementTypeFilter !== "all"
+                                  ? `No ${movementTypeFilter} movements found.`
+                                  : "No stock movements have been recorded yet."}
+                            </p>
+
+                            {(movementSearch ||
+                              movementTypeFilter !== "all" ||
+                              movementWarehouseFilter !== "all") && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="mt-2"
+                                onClick={() => {
+                                  setMovementSearch("");
+                                  setMovementTypeFilter("all");
+                                  setMovementWarehouseFilter("all");
+                                  setMovementPage(1);
+                                }}
+                              >
+                                Clear filters
+                              </Button>
+                            )}
+                          </div>
                         </TableCell>
                       </TableRow>
-                    ))}
+                    )}
                   </TableBody>
                 </Table>
               </CardContent>
             </Card>
 
-            <div className="flex items-center justify-between mt-4">
-              <p className="text-sm text-muted-foreground">
-                Page {movementPage} of{" "}
-                {Math.max(1, Math.ceil(movementTotal / movementLimit))}
-              </p>
+            {movementTotal > 0 && (
+              <div className="flex flex-col gap-3 border-t pt-4 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-sm text-muted-foreground">
+                  Showing{" "}
+                  <span className="font-medium text-foreground">
+                    {(movementPage - 1) * movementLimit + 1}
+                  </span>{" "}
+                  to{" "}
+                  <span className="font-medium text-foreground">
+                    {Math.min(movementPage * movementLimit, movementTotal)}
+                  </span>{" "}
+                  of{" "}
+                  <span className="font-medium text-foreground">
+                    {movementTotal}
+                  </span>{" "}
+                  movements
+                </p>
 
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  disabled={movementPage <= 1}
-                  onClick={() => setMovementPage((prev) => prev - 1)}
-                >
-                  Previous
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={movementPage <= 1}
+                    onClick={() => setMovementPage((prev) => prev - 1)}
+                  >
+                    Previous
+                  </Button>
 
-                <Button
-                  variant="outline"
-                  disabled={
-                    movementPage >= Math.ceil(movementTotal / movementLimit)
-                  }
-                  onClick={() => setMovementPage((prev) => prev + 1)}
-                >
-                  Next
-                </Button>
+                  <div className="flex h-9 min-w-9 items-center justify-center rounded-md border bg-muted px-3 text-sm font-medium">
+                    {movementPage}
+                  </div>
+
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={
+                      movementPage >= Math.ceil(movementTotal / movementLimit)
+                    }
+                    onClick={() => setMovementPage((prev) => prev + 1)}
+                  >
+                    Next
+                  </Button>
+                </div>
               </div>
-            </div>
+            )}
           </TabsContent>
 
           {/* Orders Tab */}

@@ -554,6 +554,17 @@ export async function POST(request, { params }) {
       const pid = parseInt(productId);
       const qty = parseInt(quantity);
 
+      if ((type === "sale" || type === "return") && !referenceNumber?.trim()) {
+        return Response.json(
+          {
+            error: `Reference number is required for ${type}.`,
+          },
+          {
+            status: 400,
+          },
+        );
+      }
+
       if (!color) {
         return Response.json({ error: "Color is required" }, { status: 400 });
       }
@@ -2417,9 +2428,15 @@ export async function GET(request, { params }) {
         productId: searchParams.get("productId")
           ? parseInt(searchParams.get("productId"))
           : undefined,
+
+        search: searchParams.get("search")?.trim(),
+
         type: searchParams.get("type"),
+
         warehouseId: searchParams.get("warehouseId"),
+
         startDate: searchParams.get("startDate"),
+
         endDate: searchParams.get("endDate"),
       };
 

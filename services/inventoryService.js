@@ -442,26 +442,106 @@ export async function getLowStockItems() {
 // Build the MongoDB query from the movement filters.
 // Keeping this in one place ensures the list and count queries
 // always use exactly the same filters.
-function buildStockMovementQuery(filters = {}) {
+async function buildStockMovementQuery(filters = {}) {
   const query = {};
+  const andConditions = [];
 
-  if (filters.productId) query.productId = filters.productId;
-  if (filters.color) query.color = filters.color;
-  if (filters.size) query.size = filters.size;
-  if (filters.type) query.type = filters.type;
-
-  if (filters.warehouseId) {
-    query.$or = [
-      { fromWarehouseId: filters.warehouseId },
-      { toWarehouseId: filters.warehouseId },
-    ];
+  if (filters.productId) {
+    query.productId = filters.productId;
   }
 
+  if (filters.color) {
+    query.color = filters.color;
+  }
+
+  if (filters.size) {
+    query.size = filters.size;
+  }
+
+  if (filters.type) {
+    query.type = filters.type;
+  }
+
+  // Warehouse filter
+  if (filters.warehouseId) {
+    andConditions.push({
+      $or: [
+        { fromWarehouseId: filters.warehouseId },
+        { toWarehouseId: filters.warehouseId },
+      ],
+    });
+  }
+
+  // Date filter
   if (filters.startDate && filters.endDate) {
     query.createdAt = {
       $gte: new Date(filters.startDate),
       $lte: new Date(filters.endDate),
     };
+  }
+
+  // Search filter
+  if (filters.search) {
+    const search = filters.search.trim();
+
+    const searchRegex = {
+      $regex: search,
+      $options: "i",
+    };
+
+    // If the search is a number, allow exact Product ID matching.
+    const numericProductId = Number(search);
+
+    let productIdMatches = [];
+
+    if (Number.isInteger(numericProductId)) {
+      productIdMatches.push(numericProductId);
+    }
+
+    // Search Product collection for product names.
+    const matchingProducts = await Product.find({
+      name: searchRegex,
+    })
+      .select("productId")
+      .lean();
+
+    productIdMatches.push(
+      ...matchingProducts.map(
+        (product) => product.productId,
+      ),
+    );
+
+    // Remove duplicate product IDs.
+    productIdMatches = [
+      ...new Set(productIdMatches),
+    ];
+
+    andConditions.push({
+      $or: [
+        // Product name / Product ID
+        ...(productIdMatches.length > 0
+          ? [
+              {
+                productId: {
+                  $in: productIdMatches,
+                },
+              },
+            ]
+          : []),
+
+        // Movement details
+        { color: searchRegex },
+        { design: searchRegex },
+        { size: searchRegex },
+        { reason: searchRegex },
+        { referenceNumber: searchRegex },
+        { notes: searchRegex },
+      ],
+    });
+  }
+
+  if (andConditions.length > 0) {
+    query.$and = andConditions;
   }
 
   return query;
@@ -473,7 +553,7 @@ export async function getStockMovements(
   limit = 50,
   skip = 0,
 ) {
-  const query = buildStockMovementQuery(filters);
+  const query = await buildStockMovementQuery(filters);
 
   return IMSStockMovement.find(query)
     .populate("fromWarehouseId")
@@ -489,7 +569,7 @@ export async function getStockMovements(
 // This intentionally does not apply skip/limit because the frontend
 // needs the complete count to calculate the number of pages.
 export async function getStockMovementsCount(filters = {}) {
-  const query = buildStockMovementQuery(filters);
+  const query = await buildStockMovementQuery(filters);
 
   return IMSStockMovement.countDocuments(query);
 }
