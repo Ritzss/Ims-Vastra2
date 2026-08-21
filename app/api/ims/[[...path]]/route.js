@@ -2852,9 +2852,34 @@ export async function GET(request, { params }) {
       // const limit = parseInt(searchParams.get("limit") || "50");
       // const page = parseInt(searchParams.get("page") || "1");
       const status = searchParams.get("status");
+const payment = searchParams.get("payment");
+const search = searchParams.get("search")?.trim();
 
-      const query = {};
-      if (status) query.status = status;
+const query = {};
+
+if (status) {
+  query.status = status;
+}
+
+if (payment) {
+  query.paymentMethod = payment;
+}
+
+if (search) {
+  const searchRegex = {
+    $regex: search,
+    $options: "i",
+  };
+
+  query.$or = [
+    {
+      orderNumber: searchRegex,
+    },
+    {
+      "deliveryAddress.name": searchRegex,
+    },
+  ];
+}
 
       const orders = await Orders.find(query)
         .sort({ createdAt: -1 })

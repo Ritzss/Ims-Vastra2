@@ -22,6 +22,8 @@ import {
   PackageX,
   RefreshCcw,
   RefreshCw,
+  ShoppingBag,
+  X,
 } from "lucide-react";
 import {
   MoreHorizontal,
@@ -280,6 +282,12 @@ export default function VastraDrobeIMS() {
   const [orderPage, setOrderPage] = useState(1);
   const [orderLimit] = useState(10);
   const [orderTotal, setOrderTotal] = useState(0);
+  const [openOrderItems, setOpenOrderItems] = useState(null);
+  const [orderSearch, setOrderSearch] = useState("");
+const [orderStatusFilter, setOrderStatusFilter] =
+  useState("all");
+const [orderPaymentFilter, setOrderPaymentFilter] =
+  useState("all");
   const [orderForm, setOrderForm] = useState({
     orderNumber: "",
     items: [],
@@ -476,9 +484,9 @@ export default function VastraDrobeIMS() {
 
       const data = await apiCall(`/inventory/list?${params.toString()}`);
 
-      console.log("INVENTORY PAGE:", inventoryPage);
-      console.log("INVENTORY REQUEST:", params.toString());
-      console.log("INVENTORY RESPONSE:", data);
+      // console.log("INVENTORY PAGE:", inventoryPage);
+      // console.log("INVENTORY REQUEST:", params.toString());
+      // console.log("INVENTORY RESPONSE:", data);
 
       setInventory(data.inventory || []);
       setInventoryTotal(data.total || 0);
@@ -518,17 +526,35 @@ export default function VastraDrobeIMS() {
   };
 
   const loadOrders = async () => {
-    try {
-      const data = await apiCall(
-        `/orders/list?page=${orderPage}&limit=${orderLimit}`,
-      );
+  try {
+    const params = new URLSearchParams({
+      page: String(orderPage),
+      limit: String(orderLimit),
+    });
 
-      setOrders(data.orders);
-      setOrderTotal(data.total);
-    } catch (error) {
-      toast.error("Failed to load orders");
+    if (orderSearch.trim()) {
+      params.set("search", orderSearch.trim());
     }
-  };
+
+    if (orderStatusFilter !== "all") {
+      params.set("status", orderStatusFilter);
+    }
+
+    if (orderPaymentFilter !== "all") {
+      params.set("payment", orderPaymentFilter);
+    }
+
+    const data = await apiCall(
+      `/orders/list?${params.toString()}`,
+    );
+
+    setOrders(data.orders || []);
+    setOrderTotal(data.total || 0);
+  } catch (error) {
+    console.error("ORDERS ERROR:", error);
+    toast.error("Failed to load orders");
+  }
+};
 
   const loadUsers = async () => {
     try {
@@ -1231,6 +1257,16 @@ export default function VastraDrobeIMS() {
     movementTypeFilter,
     movementWarehouseFilter,
   ]);
+
+  useEffect(() => {
+  loadOrders();
+}, [
+  orderPage,
+  orderLimit,
+  orderSearch,
+  orderStatusFilter,
+  orderPaymentFilter,
+]);
 
   // Load data when logged in and tab changes
   useEffect(() => {
@@ -4629,88 +4665,472 @@ export default function VastraDrobeIMS() {
 
           {/* Orders Tab */}
           <TabsContent value="orders" className="space-y-4">
-            <Button onClick={loadOrders} variant="outline">
-              <Search className="w-4 h-4 mr-2" />
-              Refresh
-            </Button>
+            {/* Orders Header */}
+<div className="flex flex-col gap-5">
+  <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+    <div>
+      <h2 className="text-2xl font-bold tracking-tight">
+        Orders
+      </h2>
 
-            <Card>
-              <CardHeader>
-                <CardTitle>Orders</CardTitle>
-                <CardDescription>
-                  Manage order fulfillment lifecycle
-                </CardDescription>
-              </CardHeader>
+      <p className="text-sm text-muted-foreground">
+        Manage order fulfillment and customer requests
+      </p>
+    </div>
+
+    <Button
+      onClick={loadOrders}
+      variant="outline"
+    >
+      <RefreshCw className="mr-2 h-4 w-4" />
+      Refresh
+    </Button>
+  </div>
+
+  {/* Order Filters */}
+  <div className="flex flex-col gap-3 rounded-xl border bg-muted/20 p-4 md:flex-row md:items-center">
+    {/* Search */}
+    <div className="relative flex-1">
+      <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+
+      <Input
+  placeholder="Search by order number or customer..."
+  value={orderSearch}
+  onChange={(e) => {
+    setOrderSearch(e.target.value);
+    setOrderPage(1);
+  }}
+  className="pl-9"
+/>
+    </div>
+
+    {/* Status */}
+    <Select
+  value={orderStatusFilter}
+  onValueChange={(value) => {
+    setOrderStatusFilter(value);
+    setOrderPage(1);
+  }}
+>
+      <SelectTrigger className="w-full md:w-44">
+        <SelectValue placeholder="Order status" />
+      </SelectTrigger>
+
+      <SelectContent>
+        <SelectItem value="all">
+          All Orders
+        </SelectItem>
+
+        <SelectItem value="pending">
+          Pending
+        </SelectItem>
+
+        <SelectItem value="packing">
+          Packing
+        </SelectItem>
+
+        <SelectItem value="shipping">
+          Shipped
+        </SelectItem>
+
+        <SelectItem value="out_for_delivery">
+          Out for Delivery
+        </SelectItem>
+
+        <SelectItem value="delivered">
+          Delivered
+        </SelectItem>
+
+        <SelectItem value="cancelled">
+          Cancelled
+        </SelectItem>
+
+        <SelectItem value="returned">
+          Returned
+        </SelectItem>
+
+        <SelectItem value="refunded">
+          Refunded
+        </SelectItem>
+      </SelectContent>
+    </Select>
+
+    {/* Payment */}
+    <Select
+  value={orderPaymentFilter}
+  onValueChange={(value) => {
+    setOrderPaymentFilter(value);
+    setOrderPage(1);
+  }}
+>
+      <SelectTrigger className="w-full md:w-40">
+        <SelectValue placeholder="Payment" />
+      </SelectTrigger>
+
+      <SelectContent>
+  <SelectItem value="all">
+    All Payments
+  </SelectItem>
+
+  <SelectItem value="COD">
+    Cash on Delivery
+  </SelectItem>
+
+  <SelectItem value="Razorpay">
+    Online Payment
+  </SelectItem>
+</SelectContent>
+    </Select>
+  </div>
+</div>
+
+           <Card>
+  <CardHeader>
+    <div className="flex items-center justify-between">
+      <div>
+        <CardTitle>Order Management</CardTitle>
+
+        <CardDescription>
+          View orders and manage their fulfillment lifecycle
+        </CardDescription>
+      </div>
+
+      <div className="rounded-lg bg-muted p-2.5">
+        <ShoppingBag className="h-5 w-5 text-muted-foreground" />
+      </div>
+    </div>
+  </CardHeader>
 
               <CardContent>
                 <Table>
                   <TableHeader>
-                    <TableRow>
-                      <TableHead>Order No.</TableHead>
-                      <TableHead>Total</TableHead>
-                      <TableHead>Items</TableHead>
-                      <TableHead>Name</TableHead>
-                      <TableHead>Delivery Address</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Created</TableHead>
-                      <TableHead>Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
+  <TableRow className="bg-muted/40">
+    <TableHead className="font-semibold">
+      Order
+    </TableHead>
+
+    <TableHead className="font-semibold">
+      Customer
+    </TableHead>
+
+    <TableHead className="font-semibold">
+      Items
+    </TableHead>
+
+    <TableHead className="font-semibold">
+      Delivery
+    </TableHead>
+
+    <TableHead className="font-semibold">
+      Payment
+    </TableHead>
+
+    <TableHead className="font-semibold">
+      Status
+    </TableHead>
+
+    <TableHead className="font-semibold">
+      Created
+    </TableHead>
+
+    <TableHead className="text-right font-semibold">
+      Actions
+    </TableHead>
+  </TableRow>
+</TableHeader>
 
                   <TableBody>
-                    {orders.map((order) => (
+                    {orders.length > 0 ? (
+    orders.map((order) => (
                       <TableRow key={order.id}>
-                        <TableCell className="font-medium">
-                          #{order.orderNumber}
-                        </TableCell>
+                        {/* Order */}
+  <TableCell>
+    <div>
+      <p className="font-semibold">
+        #{order.orderNumber}
+      </p>
 
-                        <TableCell>₹{order.totalAmount}</TableCell>
+      <p className="mt-1 font-mono text-xs text-muted-foreground">
+        ID: {order.id}
+      </p>
+    </div>
+  </TableCell>
 
-                        <TableCell className="text-sm">
-                          {order.items?.map((item) => (
-                            <div
-                              key={`${item.productId}-${item.size}-${item.color}`}
-                            >
-                              <details className="group">
-                                <summary className="cursor-pointer text-blue-600 hover:underline">
-                                  ID {item.productId}
-                                </summary>
+  {/* Customer */}
+  <TableCell>
+    <div className="flex items-center gap-2">
+      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-semibold">
+        {order.deliveryAddress?.name
+          ?.charAt(0)
+          ?.toUpperCase() || "?"}
+      </div>
 
-                                <div className="mt-2 ml-4 text-muted-foreground">
-                                  <p>Qty: {item.quantity}</p>
-                                  <p>Size: {item.size}</p>
-                                  <p>Color: {item.color}</p>
-                                  {item.design && <p>Design: {item.design}</p>}
-                                  <p>Name: {item.name}</p>
-                                  <p>Price: ₹{item.price}</p>
-                                </div>
-                              </details>
-                            </div>
-                          ))}
-                        </TableCell>
+      <div className="min-w-0">
+        <p className="truncate text-sm font-medium">
+          {order.deliveryAddress?.name || "—"}
+        </p>
 
-                        <TableCell className="text-sm">
-                          {order.deliveryAddress
-                            ? `${order.deliveryAddress.name}`
-                            : "—"}
-                        </TableCell>
-                        <TableCell className="text-sm">
-                          {order.deliveryAddress
-                            ? `${order.deliveryAddress.address} (${order.deliveryAddress.phone})`
-                            : "—"}
-                        </TableCell>
+        <p className="truncate text-xs text-muted-foreground">
+          {order.deliveryAddress?.phone || "—"}
+        </p>
+      </div>
+    </div>
+  </TableCell>
 
-                        <TableCell>
-                          <Badge
-                            variant={STATUS_COLORS[order.status] || "secondary"}
-                          >
-                            {STATUS_LABELS[order.status] || order.status}
-                          </Badge>
-                        </TableCell>
+  {/* Items */}
+  <TableCell>
+  <div className="relative min-w-[220px]">
+    <div className="flex items-center justify-between gap-2">
+      <div>
+        <p className="text-sm font-medium">
+          {order.items?.length || 0}{" "}
+          {order.items?.length === 1 ? "item" : "items"}
+        </p>
 
-                        <TableCell>
-                          {new Date(order.createdAt).toLocaleString()}
-                        </TableCell>
+        <p className="text-xs text-muted-foreground">
+          ₹
+          {order.items
+            ?.reduce(
+              (total, item) =>
+                total +
+                Number(item.total || 0),
+              0,
+            )
+            .toLocaleString()}
+        </p>
+      </div>
+
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        className="h-8"
+        onClick={() =>
+          setOpenOrderItems(
+            openOrderItems === order.id
+              ? null
+              : order.id,
+          )
+        }
+      >
+        View
+
+        <ChevronDown
+          className={`ml-1 h-3.5 w-3.5 transition-transform ${
+            openOrderItems === order.id
+              ? "rotate-180"
+              : ""
+          }`}
+        />
+      </Button>
+    </div>
+
+    {/* Items dropdown */}
+    {openOrderItems === order.id && (
+      <div className="absolute right-0 top-full z-[100] mt-2 w-96 rounded-xl border bg-background p-4 shadow-xl">
+        <div className="mb-3 flex items-center justify-between">
+          <div>
+            <p className="text-sm font-semibold">
+              Order Items
+            </p>
+
+            <p className="text-xs text-muted-foreground">
+              {order.items?.length || 0} items
+            </p>
+          </div>
+
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7"
+            onClick={() =>
+              setOpenOrderItems(null)
+            }
+          >
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+
+        <div className="max-h-80 space-y-3 overflow-y-auto">
+          {order.items?.map((item, index) => (
+            <div
+              key={`${item.productId}-${item.size}-${item.color}-${index}`}
+              className="rounded-lg border p-3"
+            >
+              <div className="flex gap-3">
+                {item.image?.[0] && (
+                  <img
+                    src={item.image[0]}
+                    alt={item.name}
+                    className="h-14 w-14 shrink-0 rounded-md object-cover"
+                  />
+                )}
+
+                <div className="min-w-0 flex-1">
+                  <p className="break-words text-sm font-semibold">
+                    {item.name}
+                  </p>
+
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Product ID: #{item.productId}
+                  </p>
+
+                  {item.sku && (
+                    <p className="text-xs text-muted-foreground">
+                      SKU: {item.sku}
+                    </p>
+                  )}
+                </div>
+
+                <div className="shrink-0 text-right">
+                  <p className="text-sm font-semibold">
+                    ₹{item.total?.toLocaleString()}
+                  </p>
+
+                  <p className="text-xs text-muted-foreground">
+                    Qty: {item.quantity}
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-3 grid grid-cols-3 gap-2">
+                <div className="rounded-md bg-muted/40 p-2">
+                  <p className="text-[11px] text-muted-foreground">
+                    Color
+                  </p>
+
+                  <p className="text-xs font-medium">
+                    {item.color || "—"}
+                  </p>
+                </div>
+
+                <div className="rounded-md bg-muted/40 p-2">
+                  <p className="text-[11px] text-muted-foreground">
+                    Size
+                  </p>
+
+                  <p className="text-xs font-medium">
+                    {item.size || "—"}
+                  </p>
+                </div>
+
+                <div className="rounded-md bg-muted/40 p-2">
+                  <p className="text-[11px] text-muted-foreground">
+                    Design
+                  </p>
+
+                  <p className="truncate text-xs font-medium">
+                    {item.design || "—"}
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-3 flex justify-between border-t pt-2 text-xs">
+                <span className="text-muted-foreground">
+                  ₹{item.price?.toLocaleString()} ×{" "}
+                  {item.quantity}
+                </span>
+
+                <span className="font-semibold">
+                  ₹{item.total?.toLocaleString()}
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    )}
+  </div>
+</TableCell>
+
+  {/* Delivery */}
+ <TableCell>
+  {order.deliveryAddress ? (
+    <div className="min-w-[300px] max-w-[400px]">
+      <p className="whitespace-normal text-sm font-medium leading-5">
+        {order.deliveryAddress.address}
+      </p>
+
+      <p className="text-sm text-muted-foreground">
+        {[
+          order.deliveryAddress.city,
+          order.deliveryAddress.state,
+          order.deliveryAddress.pincode,
+        ]
+          .filter(Boolean)
+          .join(", ")}
+      </p>
+
+      {order.deliveryAddress.phone && (
+        <p className="mt-1 text-xs text-muted-foreground">
+          📞 {order.deliveryAddress.phone}
+        </p>
+      )}
+    </div>
+  ) : (
+    <span className="text-sm text-muted-foreground">
+      —
+    </span>
+  )}
+</TableCell>
+
+  {/* Payment */}
+  <TableCell>
+    <div className="space-y-1">
+      <Badge
+        variant="outline"
+        className="text-xs"
+      >
+        {order.paymentMethod === "Razorpay" ? "Online" : order.paymentMethod}
+      </Badge>
+
+      <p
+        className={`text-xs font-medium ${
+          order.paymentStatus === "Paid"
+            ? "text-green-600 dark:text-green-400"
+            : order.paymentStatus === "Pending"
+              ? "text-yellow-600 dark:text-yellow-400"
+              : "text-muted-foreground"
+        }`}
+      >
+        {order.paymentStatus || "Unknown"}
+      </p>
+    </div>
+  </TableCell>
+
+  {/* Status */}
+  <TableCell>
+    <Badge
+      variant={
+        STATUS_COLORS[order.status] ||
+        "secondary"
+      }
+    >
+      {STATUS_LABELS[order.status] ||
+        order.status}
+    </Badge>
+  </TableCell>
+
+  {/* Created */}
+  <TableCell>
+    <div>
+      <p className="text-sm">
+        {new Date(
+          order.createdAt,
+        ).toLocaleDateString()}
+      </p>
+
+      <p className="text-xs text-muted-foreground">
+        {new Date(
+          order.createdAt,
+        ).toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+        })}
+      </p>
+    </div>
+  </TableCell>
 
                         <TableCell className="text-right">
                           <DropdownMenu modal={false}>
@@ -4901,8 +5321,29 @@ export default function VastraDrobeIMS() {
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </TableCell>
-                      </TableRow>
-                    ))}
+                      </TableRow> ))
+) : (
+  <TableRow>
+    <TableCell
+      colSpan={8}
+      className="h-52"
+    >
+      <div className="flex flex-col items-center justify-center text-center">
+        <div className="rounded-full bg-muted p-3">
+          <ShoppingBag className="h-6 w-6 text-muted-foreground" />
+        </div>
+
+        <p className="mt-3 font-medium">
+          No orders found
+        </p>
+
+        <p className="mt-1 text-sm text-muted-foreground">
+          Orders will appear here once customers place them.
+        </p>
+      </div>
+    </TableCell>
+  </TableRow>
+)}
                   </TableBody>
                 </Table>
               </CardContent>
@@ -5006,30 +5447,59 @@ export default function VastraDrobeIMS() {
               </DialogContent>
             </Dialog>
 
-            <div className="flex items-center justify-between mt-4">
-              <p className="text-sm text-muted-foreground">
-                Page {orderPage} of{" "}
-                {Math.max(1, Math.ceil(orderTotal / orderLimit))}
-              </p>
+           {orderTotal > 0 && (
+  <div className="flex flex-col gap-3 border-t pt-4 sm:flex-row sm:items-center sm:justify-between">
+    <p className="text-sm text-muted-foreground">
+      Showing{" "}
+      <span className="font-medium text-foreground">
+        {(orderPage - 1) * orderLimit + 1}
+      </span>{" "}
+      to{" "}
+      <span className="font-medium text-foreground">
+        {Math.min(
+          orderPage * orderLimit,
+          orderTotal,
+        )}
+      </span>{" "}
+      of{" "}
+      <span className="font-medium text-foreground">
+        {orderTotal}
+      </span>{" "}
+      orders
+    </p>
 
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  disabled={orderPage <= 1}
-                  onClick={() => setOrderPage((prev) => prev - 1)}
-                >
-                  Previous
-                </Button>
+    <div className="flex items-center gap-2">
+      <Button
+        variant="outline"
+        size="sm"
+        disabled={orderPage <= 1}
+        onClick={() =>
+          setOrderPage((prev) => prev - 1)
+        }
+      >
+        Previous
+      </Button>
 
-                <Button
-                  variant="outline"
-                  disabled={orderPage >= Math.ceil(orderTotal / orderLimit)}
-                  onClick={() => setOrderPage((prev) => prev + 1)}
-                >
-                  Next
-                </Button>
-              </div>
-            </div>
+      <div className="flex h-9 min-w-9 items-center justify-center rounded-md border bg-muted px-3 text-sm font-medium">
+        {orderPage}
+      </div>
+
+      <Button
+        variant="outline"
+        size="sm"
+        disabled={
+          orderPage >=
+          Math.ceil(orderTotal / orderLimit)
+        }
+        onClick={() =>
+          setOrderPage((prev) => prev + 1)
+        }
+      >
+        Next
+      </Button>
+    </div>
+  </div>
+)}
           </TabsContent>
 
           {/* Warehouses Tab */}
