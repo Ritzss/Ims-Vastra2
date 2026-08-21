@@ -3474,32 +3474,59 @@ export default function VastraDrobeIMS() {
               </DialogContent>
             </Dialog>
 
-            <div className="flex items-center justify-between mt-4">
-              <p className="text-sm text-muted-foreground">
-                Page {inventoryPage} of{" "}
-                {Math.ceil(inventoryTotal / inventoryLimit)}
-              </p>
+            {inventoryTotal > 0 && (
+  <div className="flex flex-col gap-3 border-t pt-4 sm:flex-row sm:items-center sm:justify-between">
+    <p className="text-sm text-muted-foreground">
+      Showing{" "}
+      <span className="font-medium text-foreground">
+        {(inventoryPage - 1) * inventoryLimit + 1}
+      </span>{" "}
+      to{" "}
+      <span className="font-medium text-foreground">
+        {Math.min(
+          inventoryPage * inventoryLimit,
+          inventoryTotal,
+        )}
+      </span>{" "}
+      of{" "}
+      <span className="font-medium text-foreground">
+        {inventoryTotal}
+      </span>{" "}
+      inventory records
+    </p>
 
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  disabled={inventoryPage <= 1}
-                  onClick={() => setInventoryPage((prev) => prev - 1)}
-                >
-                  Previous
-                </Button>
+    <div className="flex items-center gap-2">
+      <Button
+        variant="outline"
+        size="sm"
+        disabled={inventoryPage <= 1}
+        onClick={() =>
+          setInventoryPage((prev) => prev - 1)
+        }
+      >
+        Previous
+      </Button>
 
-                <Button
-                  variant="outline"
-                  disabled={
-                    inventoryPage >= Math.ceil(inventoryTotal / inventoryLimit)
-                  }
-                  onClick={() => setInventoryPage((prev) => prev + 1)}
-                >
-                  Next
-                </Button>
-              </div>
-            </div>
+      <div className="flex h-9 min-w-9 items-center justify-center rounded-md border bg-muted px-3 text-sm font-medium">
+        {inventoryPage}
+      </div>
+
+      <Button
+        variant="outline"
+        size="sm"
+        disabled={
+          inventoryPage >=
+          Math.ceil(inventoryTotal / inventoryLimit)
+        }
+        onClick={() =>
+          setInventoryPage((prev) => prev + 1)
+        }
+      >
+        Next
+      </Button>
+    </div>
+  </div>
+)}
           </TabsContent>
 
           {/* Stock Movements Tab */}
