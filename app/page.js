@@ -18,8 +18,10 @@ import {
   ChevronDown,
   Download,
   FileText,
+  MapPin,
   PackageSearch,
   PackageX,
+  Phone,
   RefreshCcw,
   RefreshCw,
   ShoppingBag,
@@ -5504,170 +5506,457 @@ const [orderPaymentFilter, setOrderPaymentFilter] =
 
           {/* Warehouses Tab */}
           <TabsContent value="warehouses" className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-xl font-semibold">Warehouses & Stores</h2>
+            <div className="flex flex-col gap-5">
+  {/* Header */}
+  <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+    <div>
+      <h2 className="text-2xl font-bold tracking-tight">
+        Warehouses & Stores
+      </h2>
 
-              {currentUser?.role === "admin" && (
-                <Dialog
-                  open={showWarehouseDialog}
-                  onOpenChange={setShowWarehouseDialog}
-                >
-                  <DialogTrigger asChild>
-                    <Button>
-                      <Plus className="w-4 h-4 mr-2" />
-                      Add Location
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent className="max-h-[90vh] overflow-y-auto">
-                    <DialogHeader>
-                      <DialogTitle>
-                        {isEditingWarehouse
-                          ? "Edit Warehouse/Store"
-                          : "Add Warehouse/Store"}
-                      </DialogTitle>
-                    </DialogHeader>
-                    <form onSubmit={createWarehouse} className="space-y-4">
-                      <div>
-                        <Label>Name</Label>
-                        <Input
-                          value={warehouseForm.name}
-                          onChange={(e) =>
-                            setWarehouseForm({
-                              ...warehouseForm,
-                              name: e.target.value,
-                            })
-                          }
-                          required
-                        />
-                      </div>
-                      <div>
-                        <Label>Type</Label>
-                        <Select
-                          value={warehouseForm.type}
-                          onValueChange={(val) =>
-                            setWarehouseForm({ ...warehouseForm, type: val })
-                          }
-                        >
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="warehouse">Warehouse</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div>
-                        <Label>Location</Label>
-                        <Input
-                          value={warehouseForm.location}
-                          onChange={(e) =>
-                            setWarehouseForm({
-                              ...warehouseForm,
-                              location: e.target.value,
-                            })
-                          }
-                          required
-                        />
-                      </div>
-                      <div>
-                        <Label>Contact Person</Label>
-                        <Input
-                          value={warehouseForm.contactPerson}
-                          onChange={(e) =>
-                            setWarehouseForm({
-                              ...warehouseForm,
-                              contactPerson: e.target.value,
-                            })
-                          }
-                        />
-                      </div>
-                      <div>
-                        <Label>Phone</Label>
-                        <Input
-                          value={warehouseForm.phone}
-                          onChange={(e) =>
-                            setWarehouseForm({
-                              ...warehouseForm,
-                              phone: e.target.value,
-                            })
-                          }
-                        />
-                      </div>
-                      <div>
-                        <Label>Address</Label>
-                        <Input
-                          value={warehouseForm.address}
-                          onChange={(e) =>
-                            setWarehouseForm({
-                              ...warehouseForm,
-                              address: e.target.value,
-                            })
-                          }
-                        />
-                      </div>
-                      <Button type="submit" className="w-full">
-                        {isEditingWarehouse
-                          ? "Update Location"
-                          : "Create Location"}
-                      </Button>
-                    </form>
-                  </DialogContent>
+      <p className="text-sm text-muted-foreground">
+        Manage your storage locations and warehouse contacts
+      </p>
+    </div>
+
+    {currentUser?.role === "admin" && (
+      <Dialog
+        open={showWarehouseDialog}
+        onOpenChange={setShowWarehouseDialog}
+      >
+        <DialogTrigger asChild>
+          <Button>
+            <Plus className="mr-2 h-4 w-4" />
+            Add Location
+          </Button>
+        </DialogTrigger>
+                  <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+  <DialogHeader>
+    <DialogTitle className="text-xl">
+      {isEditingWarehouse
+        ? "Edit Warehouse"
+        : "Add Warehouse"}
+    </DialogTitle>
+
+    <DialogDescription>
+      {isEditingWarehouse
+        ? "Update the warehouse or store information."
+        : "Add a new inventory storage location."}
+    </DialogDescription>
+  </DialogHeader>
+
+  <form
+    onSubmit={createWarehouse}
+    className="space-y-6"
+  >
+    {/* Basic Information */}
+    <div className="space-y-4">
+      <div>
+        <p className="text-sm font-semibold">
+          Location Information
+        </p>
+
+        <p className="text-xs text-muted-foreground">
+          Basic details about this inventory location.
+        </p>
+      </div>
+
+      <div className="space-y-2">
+        <Label>Name</Label>
+
+        <Input
+          value={warehouseForm.name}
+          onChange={(e) =>
+            setWarehouseForm({
+              ...warehouseForm,
+              name: e.target.value,
+            })
+          }
+          placeholder="e.g. Delhi Main Warehouse"
+          required
+        />
+      </div>
+
+      <div className="space-y-2">
+        <Label>Type</Label>
+
+        <Select
+          value={warehouseForm.type}
+          onValueChange={(val) =>
+            setWarehouseForm({
+              ...warehouseForm,
+              type: val,
+            })
+          }
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="Select location type" />
+          </SelectTrigger>
+
+          <SelectContent>
+            <SelectItem value="warehouse">
+              Warehouse
+            </SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div className="space-y-2">
+        <Label>Location</Label>
+
+        <div className="relative">
+          <MapPin className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+
+          <Input
+            value={warehouseForm.location}
+            onChange={(e) =>
+              setWarehouseForm({
+                ...warehouseForm,
+                location: e.target.value,
+              })
+            }
+            placeholder="e.g. Delhi, India"
+            className="pl-9"
+            required
+          />
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <Label>Address</Label>
+
+        <Textarea
+          value={warehouseForm.address}
+          onChange={(e) =>
+            setWarehouseForm({
+              ...warehouseForm,
+              address: e.target.value,
+            })
+          }
+          placeholder="Enter the complete warehouse address"
+          rows={3}
+        />
+      </div>
+    </div>
+
+    {/* Contact Information */}
+    <div className="space-y-4 border-t pt-5">
+      <div>
+        <p className="text-sm font-semibold">
+          Contact Information
+        </p>
+
+        <p className="text-xs text-muted-foreground">
+          Person responsible for this location.
+        </p>
+      </div>
+
+      <div className="space-y-2">
+        <Label>Contact Person</Label>
+
+        <Input
+          value={warehouseForm.contactPerson}
+          onChange={(e) =>
+            setWarehouseForm({
+              ...warehouseForm,
+              contactPerson: e.target.value,
+            })
+          }
+          placeholder="Enter contact person's name"
+        />
+      </div>
+
+      <div className="space-y-2">
+        <Label>Phone</Label>
+
+        <div className="relative">
+          <Phone className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+
+          <Input
+            value={warehouseForm.phone}
+            onChange={(e) =>
+              setWarehouseForm({
+                ...warehouseForm,
+                phone: e.target.value,
+              })
+            }
+            placeholder="Enter contact number"
+            className="pl-9"
+          />
+        </div>
+      </div>
+    </div>
+
+    {/* Actions */}
+    <div className="flex justify-end gap-2 border-t pt-5">
+      <Button
+        type="button"
+        variant="outline"
+        onClick={() =>
+          setShowWarehouseDialog(false)
+        }
+      >
+        Cancel
+      </Button>
+
+      <Button type="submit">
+        {isEditingWarehouse
+          ? "Update Location"
+          : "Create Location"}
+      </Button>
+    </div>
+  </form>
+</DialogContent>
                 </Dialog>
-              )}
-            </div>
+    )}
+  </div>
 
-            <Card>
-              <CardContent className="pt-6">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Name</TableHead>
-                      <TableHead>Type</TableHead>
-                      <TableHead>Location</TableHead>
-                      <TableHead>Contact</TableHead>
-                      <TableHead>Phone</TableHead>
-                      {currentUser?.role === "admin" && (
-                        <TableHead>Actions</TableHead>
-                      )}
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {warehouses.map((warehouse, ind) => (
-                      <TableRow key={`${warehouse.id}-${ind}`}>
-                        <TableCell className="font-medium">
-                          {warehouse.name}
-                        </TableCell>
-                        <TableCell>
-                          <Badge
-                            variant={
-                              warehouse.type === "warehouse"
-                                ? "default"
-                                : "secondary"
-                            }
-                          >
-                            {warehouse.type}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>{warehouse.location}</TableCell>
-                        <TableCell>{warehouse.contactPerson}</TableCell>
-                        <TableCell>{warehouse.phone}</TableCell>
-                        {currentUser?.role === "admin" && (
-                          <TableCell>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => editWarehouse(warehouse)}
-                            >
-                              <Pencil className="w-4 h-4" />
-                            </Button>
-                          </TableCell>
-                        )}
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
+  {/* Location Summary */}
+  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+    <Card>
+      <CardContent className="flex items-center justify-between p-5">
+        <div>
+          <p className="text-sm text-muted-foreground">
+            Total Locations
+          </p>
+
+          <p className="mt-1 text-2xl font-bold">
+            {warehouses.length}
+          </p>
+        </div>
+
+        <div className="rounded-lg bg-blue-100 p-3 dark:bg-blue-950/40">
+          <Warehouse className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+        </div>
+      </CardContent>
+    </Card>
+
+    <Card>
+      <CardContent className="flex items-center justify-between p-5">
+        <div>
+          <p className="text-sm text-muted-foreground">
+            Warehouses
+          </p>
+
+          <p className="mt-1 text-2xl font-bold">
+            {
+              warehouses.filter(
+                (warehouse) =>
+                  warehouse.type === "warehouse",
+              ).length
+            }
+          </p>
+        </div>
+
+        <div className="rounded-lg bg-purple-100 p-3 dark:bg-purple-950/40">
+          <Boxes className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+        </div>
+      </CardContent>
+    </Card>
+
+    <Card>
+      <CardContent className="flex items-center justify-between p-5">
+        <div>
+          <p className="text-sm text-muted-foreground">
+            Active Locations
+          </p>
+
+          <p className="mt-1 text-2xl font-bold">
+            {warehouses.length}
+          </p>
+        </div>
+
+        <div className="rounded-lg bg-green-100 p-3 dark:bg-green-950/40">
+          <MapPin className="h-5 w-5 text-green-600 dark:text-green-400" />
+        </div>
+      </CardContent>
+    </Card>
+  </div>
+</div>
+
+            <Card className="border-border/60 shadow-sm">
+  <CardHeader>
+    <div className="flex items-center justify-between">
+      <div>
+        <CardTitle>Locations</CardTitle>
+        <CardDescription>
+          Manage warehouse locations and contact information
+        </CardDescription>
+      </div>
+
+      <div className="rounded-lg bg-muted p-2.5">
+        <Warehouse className="h-5 w-5 text-muted-foreground" />
+      </div>
+    </div>
+  </CardHeader>
+
+  <CardContent className="p-0">
+    {warehouses.length > 0 ? (
+      <Table>
+        <TableHeader>
+          <TableRow className="bg-muted/40">
+            <TableHead className="font-semibold">
+              Location
+            </TableHead>
+
+            <TableHead className="font-semibold">
+              Type
+            </TableHead>
+
+            <TableHead className="font-semibold">
+              Address
+            </TableHead>
+
+            <TableHead className="font-semibold">
+              Contact
+            </TableHead>
+
+            <TableHead className="font-semibold">
+              Phone
+            </TableHead>
+
+            {currentUser?.role === "admin" && (
+              <TableHead className="text-right font-semibold">
+                Actions
+              </TableHead>
+            )}
+          </TableRow>
+        </TableHeader>
+
+        <TableBody>
+          {warehouses.map((warehouse, ind) => (
+            <TableRow
+              key={`${warehouse.id}-${ind}`}
+              className="hover:bg-muted/30"
+            >
+              {/* Location */}
+              <TableCell>
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-blue-100 dark:bg-blue-950/40">
+                    <Warehouse className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                  </div>
+
+                  <div>
+                    <p className="font-semibold">
+                      {warehouse.name}
+                    </p>
+
+                    <p className="text-xs text-muted-foreground">
+                      {warehouse.location}
+                    </p>
+                  </div>
+                </div>
+              </TableCell>
+
+              {/* Type */}
+              <TableCell>
+                <Badge
+                  variant={
+                    warehouse.type === "warehouse"
+                      ? "default"
+                      : "secondary"
+                  }
+                  className="capitalize"
+                >
+                  {warehouse.type}
+                </Badge>
+              </TableCell>
+
+              {/* Address */}
+              <TableCell>
+                <div className="flex max-w-[320px] items-start gap-2">
+                  <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+
+                  <span className="whitespace-normal text-sm leading-5">
+                    {warehouse.address || "No address provided"}
+                  </span>
+                </div>
+              </TableCell>
+
+              {/* Contact */}
+              <TableCell>
+                {warehouse.contactPerson ? (
+                  <div>
+                    <p className="text-sm font-medium">
+                      {warehouse.contactPerson}
+                    </p>
+
+                    <p className="text-xs text-muted-foreground">
+                      Contact person
+                    </p>
+                  </div>
+                ) : (
+                  <span className="text-sm text-muted-foreground">
+                    —
+                  </span>
+                )}
+              </TableCell>
+
+              {/* Phone */}
+              <TableCell>
+                {warehouse.phone ? (
+                  <div className="flex items-center gap-2">
+                    <Phone className="h-4 w-4 text-muted-foreground" />
+
+                    <span className="text-sm">
+                      {warehouse.phone}
+                    </span>
+                  </div>
+                ) : (
+                  <span className="text-sm text-muted-foreground">
+                    —
+                  </span>
+                )}
+              </TableCell>
+
+              {/* Actions */}
+              {currentUser?.role === "admin" && (
+                <TableCell className="text-right">
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    onClick={() =>
+                      editWarehouse(warehouse)
+                    }
+                    title="Edit location"
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                </TableCell>
+              )}
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    ) : (
+      <div className="flex min-h-52 flex-col items-center justify-center text-center">
+        <div className="rounded-full bg-muted p-3">
+          <Warehouse className="h-6 w-6 text-muted-foreground" />
+        </div>
+
+        <p className="mt-3 font-medium">
+          No locations found
+        </p>
+
+        <p className="mt-1 text-sm text-muted-foreground">
+          Add your first warehouse or store location.
+        </p>
+
+        {currentUser?.role === "admin" && (
+          <Button
+            className="mt-4"
+            onClick={() =>
+              setShowWarehouseDialog(true)
+            }
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            Add Location
+          </Button>
+        )}
+      </div>
+    )}
+  </CardContent>
+</Card>
           </TabsContent>
 
           {/* Users Tab */}
