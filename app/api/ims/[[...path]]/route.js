@@ -41,6 +41,7 @@ import { calculateTotalQuantity } from "@/lib/inventoryUtils";
 import generateInvoice from "@/lib/invoice/generateInvoice";
 import { PassThrough } from "stream";
 import {
+  getDesign,
   getInventoryVariant,
   getProductVariant,
   getSize,
@@ -878,6 +879,9 @@ export async function POST(request, { params }) {
         reorderQuantity,
       } = body;
 
+      // ---------------------------------------------------------
+      // 1. Find inventory
+      // ---------------------------------------------------------
       const inventory = await IMSInventory.findById(inventoryId);
 
       if (!inventory) {
@@ -891,6 +895,9 @@ export async function POST(request, { params }) {
         );
       }
 
+      // ---------------------------------------------------------
+      // 2. Find the corresponding product
+      // ---------------------------------------------------------
       const product = await Product.findOne({
         productId: inventory.productId,
       });
@@ -906,12 +913,15 @@ export async function POST(request, { params }) {
         );
       }
 
+      // ---------------------------------------------------------
+      // 3. Find the product variant by color
+      // ---------------------------------------------------------
       const productVariant = getProductVariant(product, color);
 
       if (!productVariant) {
         return Response.json(
           {
-            error: "Color not found",
+            error: `Color "${color}" not found for this product`,
           },
           {
             status: 404,
@@ -919,23 +929,119 @@ export async function POST(request, { params }) {
         );
       }
 
+      // ---------------------------------------------------------
+      // 4. Find the inventory variant by color
+      // ---------------------------------------------------------
       const variant = getInventoryVariant(inventory, color);
+
+      if (!variant) {
+        return Response.json(
+          {
+            error: `Inventory variant for color "${color}" not found`,
+          },
+          {
+            status: 404,
+          },
+        );
+      }
 
       let sizeNode;
 
+      // ---------------------------------------------------------
+      // 5. Products with designs
+      // ---------------------------------------------------------
       if (hasDesign(productVariant)) {
+        // A design is required when the product uses designs.
+        if (!design) {
+          return Response.json(
+            {
+              error: "Design is required for this product variant",
+            },
+            {
+              status: 400,
+            },
+          );
+        }
+
         const designNode = getDesign(variant, design);
+
+        // Prevent getSize() from receiving undefined.
+        if (!designNode) {
+          return Response.json(
+            {
+              error: `Design "${design}" not found for color "${color}"`,
+            },
+            {
+              status: 404,
+            },
+          );
+        }
 
         sizeNode = getSize(designNode, size);
       } else {
+        // -------------------------------------------------------
+        // 6. Products without designs
+        // -------------------------------------------------------
         sizeNode = getSize(variant, size);
       }
 
-      sizeNode.quantity = Number(quantity);
+      // ---------------------------------------------------------
+      // 7. Validate size
+      // ---------------------------------------------------------
+      if (!sizeNode) {
+        return Response.json(
+          {
+            error: `Size "${size}" not found for color "${color}"${
+              design ? ` and design "${design}"` : ""
+            }`,
+          },
+          {
+            status: 404,
+          },
+        );
+      }
 
-      sizeNode.reorderLevel = Number(reorderLevel);
+      // ---------------------------------------------------------
+      // 8. Validate numeric values
+      // ---------------------------------------------------------
+      const newQuantity = Number(quantity);
+      const newReorderLevel = Number(reorderLevel);
+      const newReorderQuantity = Number(reorderQuantity);
 
-      sizeNode.reorderQuantity = Number(reorderQuantity);
+      if (
+        !Number.isFinite(newQuantity) ||
+        !Number.isFinite(newReorderLevel) ||
+        !Number.isFinite(newReorderQuantity)
+      ) {
+        return Response.json(
+          {
+            error:
+              "Quantity, reorder level, and reorder quantity must be valid numbers",
+          },
+          {
+            status: 400,
+          },
+        );
+      }
+
+      if (newQuantity < 0 || newReorderLevel < 0 || newReorderQuantity < 0) {
+        return Response.json(
+          {
+            error:
+              "Quantity, reorder level, and reorder quantity cannot be negative",
+          },
+          {
+            status: 400,
+          },
+        );
+      }
+
+      // ---------------------------------------------------------
+      // 9. Update inventory
+      // ---------------------------------------------------------
+      sizeNode.quantity = newQuantity;
+      sizeNode.reorderLevel = newReorderLevel;
+      sizeNode.reorderQuantity = newReorderQuantity;
 
       inventory.totalQuantity = calculateTotalQuantity(inventory);
 
@@ -945,8 +1051,14 @@ export async function POST(request, { params }) {
 
       await inventory.save();
 
+      // ---------------------------------------------------------
+      // 10. Update product-level total stock
+      // ---------------------------------------------------------
       await updateProductTotalStock(inventory.productId);
 
+      // ---------------------------------------------------------
+      // 11. Create activity log
+      // ---------------------------------------------------------
       await logActivity(
         user.id,
         "update",
@@ -955,15 +1067,18 @@ export async function POST(request, { params }) {
         null,
         {
           color,
-          design,
+          design: design || null,
           size,
-          quantity,
-          reorderLevel,
-          reorderQuantity,
+          quantity: newQuantity,
+          reorderLevel: newReorderLevel,
+          reorderQuantity: newReorderQuantity,
         },
         request.headers.get("x-forwarded-for"),
       );
 
+      // ---------------------------------------------------------
+      // 12. Return updated inventory
+      // ---------------------------------------------------------
       return Response.json({
         success: true,
         message: "Inventory updated successfully",
@@ -2173,7 +2288,69 @@ export async function GET(request, { params }) {
 
       if (lowStock) {
         query.$expr = {
-          $lte: ["$quantity", "$reorderLevel"],
+          $gt: [
+            {
+              $size: {
+                $filter: {
+                  input: {
+                    $concatArrays: [
+                      {
+                        $reduce: {
+                          input: "$variants",
+                          initialValue: [],
+                          in: {
+                            $concatArrays: [
+                              "$$value",
+                              {
+                                $ifNull: ["$$this.sizes", []],
+                              },
+                            ],
+                          },
+                        },
+                      },
+                      {
+                        $reduce: {
+                          input: "$variants",
+                          initialValue: [],
+                          in: {
+                            $concatArrays: [
+                              "$$value",
+                              {
+                                $reduce: {
+                                  input: {
+                                    $ifNull: ["$$this.designs", []],
+                                  },
+                                  initialValue: [],
+                                  in: {
+                                    $concatArrays: [
+                                      "$$value",
+                                      {
+                                        $ifNull: ["$$this.sizes", []],
+                                      },
+                                    ],
+                                  },
+                                },
+                              },
+                            ],
+                          },
+                        },
+                      },
+                    ],
+                  },
+                  as: "size",
+                  cond: {
+                    $and: [
+                      { $gt: ["$$size.quantity", 0] },
+                      {
+                        $lte: ["$$size.quantity", "$$size.reorderLevel"],
+                      },
+                    ],
+                  },
+                },
+              },
+            },
+            0,
+          ],
         };
       }
 
@@ -2390,72 +2567,205 @@ export async function GET(request, { params }) {
     // ----- DASHBOARD -----
 
     if (routePath === "dashboard/stats") {
+      // ---------------------------------------------------------
+      // 1. Get all inventory records
+      // ---------------------------------------------------------
       const inventories = await IMSInventory.find().lean();
 
+      // Collect unique product IDs from inventory.
+      // Product.productId is a Number, so we cannot use normal
+      // Mongoose populate for IMSStockMovement.productId.
       const productIds = [...new Set(inventories.map((inv) => inv.productId))];
 
+      // ---------------------------------------------------------
+      // 2. Fetch products
+      // ---------------------------------------------------------
       const products = await Product.find({
         productId: { $in: productIds },
       }).lean();
 
+      // Create a quick lookup map:
+      // productId -> product
       const productMap = Object.fromEntries(
-        products.map((p) => [p.productId, p]),
+        products.map((product) => [product.productId, product]),
       );
 
+      // ---------------------------------------------------------
+      // 3. Calculate inventory statistics
+      // ---------------------------------------------------------
       let totalValue = 0;
       let totalQuantity = 0;
+
       let lowStockCount = 0;
       let outOfStockCount = 0;
+      let healthyStockCount = 0;
 
-      for (const inv of inventories) {
-        const product = productMap[inv.productId];
+      for (const inventory of inventories) {
+        const product = productMap[inventory.productId];
+
+        // Ignore inventory records whose product no longer exists.
         if (!product) continue;
 
-        for (const variant of inv.variants ?? []) {
+        for (const variant of inventory.variants ?? []) {
+          // -----------------------------------------------------
           // Products without designs
+          // -----------------------------------------------------
           for (const size of variant.sizes ?? []) {
             totalQuantity += size.quantity;
             totalValue += size.quantity * product.price;
 
             if (size.quantity === 0) {
+              // Completely unavailable
               outOfStockCount++;
-            }
-
-            if (size.quantity <= size.reorderLevel) {
+            } else if (size.quantity <= size.reorderLevel) {
+              // Available, but below reorder level
               lowStockCount++;
+            } else {
+              // Healthy stock level
+              healthyStockCount++;
             }
           }
 
+          // -----------------------------------------------------
           // Products with designs
+          // -----------------------------------------------------
           for (const design of variant.designs ?? []) {
             for (const size of design.sizes ?? []) {
               totalQuantity += size.quantity;
               totalValue += size.quantity * product.price;
 
               if (size.quantity === 0) {
+                // Completely unavailable
                 outOfStockCount++;
-              }
-
-              if (size.quantity <= size.reorderLevel) {
+              } else if (size.quantity <= size.reorderLevel) {
+                // Available, but below reorder level
                 lowStockCount++;
+              } else {
+                // Healthy stock level
+                healthyStockCount++;
               }
             }
           }
         }
       }
 
+      // ---------------------------------------------------------
+      // 4. Calculate stock health percentage
+      // ---------------------------------------------------------
+      const totalStockPositions =
+        healthyStockCount + lowStockCount + outOfStockCount;
+
+      const stockHealthPercentage =
+        totalStockPositions > 0
+          ? Math.round((healthyStockCount / totalStockPositions) * 100)
+          : 100;
+
+      // ---------------------------------------------------------
+      // 5. Get latest stock movements
+      // ---------------------------------------------------------
       const recentMovements = await IMSStockMovement.find()
         .sort({ createdAt: -1 })
         .limit(10)
         .lean();
 
+      // ---------------------------------------------------------
+      // 6. Get products used by recent movements
+      // ---------------------------------------------------------
+      const movementProductIds = [
+        ...new Set(recentMovements.map((movement) => movement.productId)),
+      ];
+
+      const movementProducts = await Product.find({
+        productId: { $in: movementProductIds },
+      })
+        .select("productId name price")
+        .lean();
+
+      // Create:
+      // productId -> product
+      const movementProductMap = Object.fromEntries(
+        movementProducts.map((product) => [product.productId, product]),
+      );
+
+      // ---------------------------------------------------------
+      // 7. Get warehouses used by recent movements
+      // ---------------------------------------------------------
+      const warehouseIds = [
+        ...new Set(
+          recentMovements
+            .flatMap((movement) => [
+              movement.fromWarehouseId,
+              movement.toWarehouseId,
+            ])
+            .filter(Boolean)
+            .map((id) => id.toString()),
+        ),
+      ];
+
+      const warehouses =
+        warehouseIds.length > 0
+          ? await IMSWarehouse.find({
+              _id: { $in: warehouseIds },
+            })
+              .select("name")
+              .lean()
+          : [];
+
+      // Create:
+      // warehouseId -> warehouse name
+      const warehouseMap = Object.fromEntries(
+        warehouses.map((warehouse) => [
+          warehouse._id.toString(),
+          warehouse.name,
+        ]),
+      );
+
+      // ---------------------------------------------------------
+      // 8. Format movements for the dashboard
+      // ---------------------------------------------------------
+      const formattedMovements = recentMovements.map((movement) => {
+        const product = movementProductMap[movement.productId];
+
+        return {
+          ...movement,
+
+          product: product
+            ? {
+                productId: product.productId,
+                name: product.name,
+                price: product.price,
+              }
+            : null,
+
+          fromWarehouse: movement.fromWarehouseId
+            ? warehouseMap[movement.fromWarehouseId.toString()] || null
+            : null,
+
+          toWarehouse: movement.toWarehouseId
+            ? warehouseMap[movement.toWarehouseId.toString()] || null
+            : null,
+        };
+      });
+
+      // ---------------------------------------------------------
+      // 9. Return dashboard statistics
+      // ---------------------------------------------------------
       return Response.json({
         totalStockValue: Math.round(totalValue * 100) / 100,
+
         totalQuantity,
+
         lowStockCount,
+
         outOfStockCount,
+
+        healthyStockCount,
+
+        stockHealthPercentage,
+
         uniqueProducts: productIds.length,
-        recentMovements,
+
+        recentMovements: formattedMovements,
       });
     }
 
